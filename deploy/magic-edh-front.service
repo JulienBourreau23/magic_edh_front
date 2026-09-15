@@ -1,0 +1,17 @@
+[Unit]
+Description=Magic EDH Frontend (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=julien
+WorkingDirectory=/opt/mtg-front/magic_edh_front
+ExecStart=/usr/bin/node .next/standalone/server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+[Install]
+WantedBy=multi-user.target
