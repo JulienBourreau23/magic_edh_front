@@ -341,6 +341,12 @@ export interface ImportDeckResult {
   deck_id: number
   commander_resolved: boolean
   import_issues: ImportIssue[]
+  /** Renseigné seulement si l'import a aussi alimenté la collection. */
+  collection: {
+    added_distinct: number
+    added_total: number
+    skipped_basic_lands: number
+  } | null
 }
 
 // --- Endpoints ---
@@ -348,8 +354,16 @@ export interface ImportDeckResult {
 export const decksApi = {
   list: () => apiFetch<DeckSummary[]>("/decks"),
   get: (id: number) => apiFetch<DeckDetail>(`/decks/${id}`),
-  import: (name: string, decklist: string, format: DeckFormat = "commander") =>
-    apiFetch<ImportDeckResult>("/decks", { method: "POST", body: { name, decklist, format } }),
+  import: (
+    name: string,
+    decklist: string,
+    format: DeckFormat = "commander",
+    addToCollection = false,
+  ) =>
+    apiFetch<ImportDeckResult>("/decks", {
+      method: "POST",
+      body: { name, decklist, format, add_to_collection: addToCollection },
+    }),
   update: (id: number, changes: { name?: string; format?: DeckFormat; commander_scryfall_id?: string }) =>
     apiFetch<DeckSummary>(`/decks/${id}`, { method: "PATCH", body: changes }),
   remove: (id: number) => apiFetch<void>(`/decks/${id}`, { method: "DELETE" }),

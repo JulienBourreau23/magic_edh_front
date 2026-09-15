@@ -13,6 +13,7 @@ export default function ImportDeckPage() {
   const [name, setName] = useState("")
   const [decklist, setDecklist] = useState("")
   const [format, setFormat] = useState<DeckFormat>("commander")
+  const [addToCollection, setAddToCollection] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -21,7 +22,12 @@ export default function ImportDeckPage() {
     setError(null)
     setSubmitting(true)
     try {
-      const result = await decksApi.import(name.trim() || "Deck sans nom", decklist, format)
+      const result = await decksApi.import(
+        name.trim() || "Deck sans nom",
+        decklist,
+        format,
+        addToCollection,
+      )
       router.push(`/decks/${result.deck_id}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur inattendue lors de l'import")
@@ -90,6 +96,26 @@ export default function ImportDeckPage() {
                 className="font-mono text-sm"
                 required
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor="add-to-collection" className="flex items-start gap-2 text-sm font-medium">
+                <input
+                  id="add-to-collection"
+                  type="checkbox"
+                  checked={addToCollection}
+                  onChange={(e) => setAddToCollection(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+                <span>Ce deck est déjà monté : ajouter ses cartes à ma collection</span>
+              </label>
+              <p className="text-xs text-muted-foreground">
+                À cocher uniquement si tu possèdes physiquement ces cartes. Les quantités
+                s&apos;additionnent, donc deux decks montés contenant chacun un Anneau solaire
+                donnent bien deux exemplaires — et aucun achat conseillé. Les terrains de base sont
+                ignorés (supposés illimités) : une liste de 100 cartes n&apos;en ajoute qu&apos;une
+                soixantaine.
+              </p>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
