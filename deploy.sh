@@ -15,5 +15,5 @@ npm run build          # set -e arrête ici si le build casse
 cp -r .next/static .next/standalone/.next/
 [ -d public ] && cp -r public .next/standalone/
 
-sudo systemctl restart magic-edh-front
+sudo systemctl restart mtg-front
 echo "✓ Front déployé"

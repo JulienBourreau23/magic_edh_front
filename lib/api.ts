@@ -1,6 +1,6 @@
 import { authHeaders, clearToken } from "./auth"
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://magic-edh-api.julien-cloud.eu"
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://mtg-edh-api.julien-cloud.eu"
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
