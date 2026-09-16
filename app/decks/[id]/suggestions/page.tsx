@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ManabaseAdvice } from "@/components/ManabaseAdvice"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
 import { decksApi, displayName, type Suggestions } from "@/lib/api"
@@ -85,6 +86,25 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
 
       {data && !data.error && (
         <>
+          {/* La manabase d'abord : elle se corrige sans rien acheter, alors que
+              tout ce qui suit coûte de l'argent ou un emplacement. */}
+          {(data.manabase.basic_lands || data.manabase.strained_total > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Manabase</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ManabaseAdvice
+                  stuckCards={data.manabase.stuck_cards}
+                  measuredStuckRate={data.manabase.measured_stuck_rate}
+                  strained={data.manabase.strained_cards}
+                  strainedTotal={data.manabase.strained_total}
+                  basicLands={data.manabase.basic_lands}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {data.to_cut.length > 0 && (
             <Card>
               <CardHeader>

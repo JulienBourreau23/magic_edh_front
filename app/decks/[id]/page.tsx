@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ManaCurveChart } from "@/components/ManaCurveChart"
 import { CardTile } from "@/components/CardTile"
 import { ColorDonut } from "@/components/ColorDonut"
+import { ManabaseAdvice } from "@/components/ManabaseAdvice"
 import { DeckToolbar } from "@/components/DeckToolbar"
 import { ImportIssuesPanel } from "@/components/ImportIssuesPanel"
 
@@ -180,6 +181,13 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
               {manabase.land_count} terrains (repère {manabase.recommended_lands})
             </p>
             <ColorDonut colors={manabase.colors} colorlessCards={manabase.colorless_cards} />
+            <ManabaseAdvice
+              stuckCards={manabase.stuck_cards}
+              measuredStuckRate={manabase.measured_stuck_rate}
+              strained={manabase.strained_cards}
+              strainedTotal={manabase.strained_total}
+              basicLands={manabase.basic_lands}
+            />
           </CardContent>
         </Card>
 

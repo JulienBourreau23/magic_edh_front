@@ -10,6 +10,8 @@
  * protanopie, donc **la lettre de couleur est portée par la part elle-même**
  * et par la légende. La couleur est un rappel, jamais le seul identifiant.
  */
+import type { ManabaseColor } from "@/lib/api"
+
 const MANA_ORDER = ["W", "U", "B", "R", "G"] as const
 
 const MANA_TOKEN: Record<string, string> = {
@@ -38,13 +40,14 @@ export function ColorDonut({
   colors,
   colorlessCards,
 }: {
-  colors: Record<string, { sources: number; pips: number; under_supplied: boolean }>
+  colors: Record<string, ManabaseColor>
   colorlessCards?: number
 }) {
   const slices = MANA_ORDER.filter((color) => (colors[color]?.pips ?? 0) > 0).map((color) => ({
     color,
     pips: colors[color].pips,
     sources: colors[color].sources,
+    target: colors[color].target,
     underSupplied: colors[color].under_supplied,
   }))
   const total = slices.reduce((sum, slice) => sum + slice.pips, 0)
@@ -82,7 +85,7 @@ export function ColorDonut({
               strokeDasharray={`${arc.length} ${CIRCUMFERENCE - arc.length}`}
               strokeDashoffset={-arc.offset}
             >
-              <title>{`${MANA_LABEL[arc.color]} — ${arc.pips} symboles demandés, ${arc.sources} sources`}</title>
+              <title>{`${MANA_LABEL[arc.color]} — ${arc.pips} symboles demandés, ${arc.sources} sources sur ${arc.target} conseillées`}</title>
             </circle>
           ))}
         </g>
@@ -128,6 +131,7 @@ export function ColorDonut({
               <span className="w-4 font-mono font-semibold">{slice.color}</span>
               <span className="text-muted-foreground">
                 {slice.pips} symboles demandés · {slice.sources} sources
+                {slice.target > 0 && <> sur {slice.target} conseillées</>}
               </span>
               {slice.underSupplied && (
                 <span className="text-amber-600 dark:text-amber-500">sous-alimentée</span>

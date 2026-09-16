@@ -173,11 +173,58 @@ export interface BracketEstimate {
   note: string
 }
 
+export interface ManabaseColor {
+  sources: number
+  pips: number
+  /** Sources conseillées pour cette couleur, calculées depuis sa propre demande. */
+  target: number
+  shortfall: number
+  under_supplied: boolean
+}
+
+/** Une carte que les couleurs laissent en main : il lui faut plus de sources qu'il n'y en a. */
+export interface StrainedCard {
+  name: string
+  mana_cost: string | null
+  color: string
+  needed: number
+  sources: number
+}
+
+/**
+ * Répartition conseillée des terrains de base. Le total ne bouge jamais : c'est
+ * un échange, pas un achat.
+ */
+export interface BasicLandAdvice {
+  total: number
+  current: Record<string, number>
+  suggested: Record<string, number>
+  moves: { land: string; from: number; to: number; delta: number }[]
+  stuck_before: number
+  stuck_after: number
+  /**
+   * Contrôle par simulation : l'estimation rapide raisonne couleur par couleur
+   * et ne voit pas qu'une duale W/U ne paie qu'un symbole à la fois. Quand les
+   * deux se contredisent, c'est la simulation qui tranche. Absents hors des
+   * pages qui conseillent.
+   */
+  measured_before?: number
+  measured_after?: number
+  confirmed?: boolean
+}
+
 export interface Manabase {
   land_count: number
   recommended_lands: string
   lands_ok: boolean
-  colors: Record<string, { sources: number; pips: number; under_supplied: boolean }>
+  colors: Record<string, ManabaseColor>
+  /** Cartes bloquées en main par les couleurs, en espérance (estimation rapide). */
+  stuck_cards: number
+  /** Part des sorts bloqués par la couleur, mesurée par simulation. null hors des pages qui conseillent. */
+  measured_stuck_rate: number | null
+  strained_cards: StrainedCard[]
+  strained_total: number
+  basic_lands: BasicLandAdvice | null
   colorless_cards: number
 }
 
