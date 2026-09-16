@@ -130,6 +130,38 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
                 ))}
               </ul>
             )}
+            {bracket.two_card_combos.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p>
+                  {bracket.two_card_combos.length} combo(s) à deux cartes, dont{" "}
+                  {bracket.winning_combo_count} qui gagne(nt) la partie.
+                </p>
+                <ul className="flex flex-col gap-1.5">
+                  {bracket.two_card_combos.map((combo) => (
+                    <li key={combo.variant_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <Badge variant={combo.wins_outright ? "default" : "secondary"}>
+                        {combo.wins_outright ? "Gagne la partie" : "Combo"}
+                      </Badge>
+                      <a
+                        href={combo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-foreground underline underline-offset-2"
+                      >
+                        {combo.cards.join(" + ")}
+                      </a>
+                      <span className="text-xs">
+                        {combo.total_mana_value} mana au total — {combo.produces.slice(0, 2).join(", ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs">
+                  « Mana au total » = lancer les deux cartes puis exécuter le combo. À comparer au
+                  ramp du deck : le bracket 3 tolère un combo de fin de partie, pas un plan de départ.
+                </p>
+              </div>
+            )}
             <p className="text-xs">
               Signaux non automatisables : {bracket.qualitative_signals.tutors} tuteur(s),{" "}
               {bracket.qualitative_signals.extra_turns} tour(s) supplémentaire(s),{" "}

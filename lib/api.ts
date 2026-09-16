@@ -139,12 +139,30 @@ export interface LegalityWarning {
   issue: string
 }
 
+export interface TwoCardCombo {
+  variant_id: string
+  /** Page Commander Spellbook du combo, pour vérifier à la main. */
+  url: string
+  /** Les deux cartes, déjà affichées en français quand la traduction existe. */
+  cards: string[]
+  produces: string[]
+  /** Gagne la partie à lui seul : c'est celui qui pèse sur le bracket. */
+  wins_outright: boolean
+  mana_needed: string | null
+  /** Mana pour lancer les deux cartes ET exécuter le combo. */
+  total_mana_value: number
+  bracket_tag: string | null
+  popularity: number | null
+}
+
 export interface BracketEstimate {
   game_changers: { name: string; name_fr: string | null; scryfall_id: string; is_commander: boolean }[]
   game_changer_count: number
   min: number
   max: number
   label: string
+  two_card_combos: TwoCardCombo[]
+  winning_combo_count: number
   qualitative_signals: { tutors: number; extra_turns: number; stax: number }
   note: string
 }
