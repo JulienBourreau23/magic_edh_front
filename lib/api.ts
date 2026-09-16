@@ -580,3 +580,88 @@ export const balanceApi = {
       (targetBracket ? `&target_bracket=${targetBracket}` : "")
     ),
 }
+
+// --- Construction compétitive ------------------------------------------------
+
+export type CompetitiveFormat = "commander" | "duel"
+
+export interface CompetitiveCommander {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  color_identity: string[]
+  mana_cost: string | null
+  image_uri: string | null
+  image_downloaded: boolean
+  game_changer: boolean
+}
+
+export interface CompetitiveTheme {
+  slug: string
+  label: string
+  /** Nombre de decks recensés par EDHREC sur cet archétype. */
+  deck_count: number
+  cards_legal: number
+  cards_owned: number
+  /** Part du vivier de l'archétype déjà en collection, de 0 à 1. */
+  coverage: number
+}
+
+export interface CompetitiveCard {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  mana_cost: string | null
+  cmc: number | null
+  type_line: string | null
+  price_eur: number | null
+  image_uri: string | null
+  image_downloaded: boolean
+  categories: string[]
+  color_identity: string[]
+  game_changer: boolean
+  edhrec_rank: number | null
+  owned: boolean
+  /** Part des decks de cet archétype qui jouent la carte. */
+  theme_rate: number
+  commander_rate: number
+}
+
+export interface CompetitiveBuild {
+  commander: CompetitiveCard
+  theme: { slug: string; label: string; deck_count: number }
+  format: CompetitiveFormat
+  cards: CompetitiveCard[]
+  lands: { nonbasic: CompetitiveCard[]; basics: Record<string, number>; total: number }
+  counts: {
+    total: number
+    nonland: number
+    nonland_target: number
+    lands: number
+    owned: number
+    missing: number
+  }
+  /** Courbe visée (celle des decks réels de l'archétype) et courbe obtenue. */
+  curve: { target: Record<string, number>; achieved: Record<string, number> }
+  type_targets: Record<string, number>
+  type_achieved: Record<string, number>
+  /** Chaque achat désigne la carte qu'il remplace. */
+  upgrades: { buy: CompetitiveCard; replace: CompetitiveCard; price_eur: number }[]
+  pool_size: number
+}
+
+export const competitiveApi = {
+  commanders: () =>
+    apiFetch<{ commanders: CompetitiveCommander[] }>("/competitive/commanders"),
+  themes: (commander: string, format: CompetitiveFormat) =>
+    apiFetch<{ themes: CompetitiveTheme[]; error?: string }>(
+      `/competitive/themes?commander=${commander}&format=${format}`
+    ),
+  build: (commander: string, theme: string, format: CompetitiveFormat, maxPrice = 50) =>
+    apiFetch<CompetitiveBuild>(
+      `/competitive/build?commander=${commander}&theme=${encodeURIComponent(theme)}` +
+      `&format=${format}&max_price=${maxPrice}`
+    ),
+}
