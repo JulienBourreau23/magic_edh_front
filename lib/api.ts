@@ -679,3 +679,47 @@ export const competitiveApi = {
       `&format=${format}&max_price=${maxPrice}`
     ),
 }
+
+// --- Liste de recherche ------------------------------------------------------
+
+export interface WishlistEntry extends Card {
+  quantity: number
+  /** Pourquoi on la cherche : « remplace Birds of Paradise dans Atraxa ». */
+  note: string | null
+  added_at: string
+  /** Exemplaires déjà en collection : une carte peut être cherchée en plus. */
+  owned_quantity: number
+}
+
+export interface WishlistStats {
+  distinct_cards: number
+  total_cards: number
+  total_price_eur: number
+  /** Cartes sans prix non-foil connu : elles ne sont pas dans le total. */
+  unknown_price: number
+}
+
+export const wishlistApi = {
+  list: () => apiFetch<{ cards: WishlistEntry[]; stats: WishlistStats }>("/wishlist"),
+  add: (scryfallId: string, quantity = 1, note?: string) =>
+    apiFetch<{ status: string }>("/wishlist", {
+      method: "POST",
+      body: JSON.stringify({ scryfall_id: scryfallId, quantity, note }),
+    }),
+  importBulk: (cards: string, note?: string) =>
+    apiFetch<CollectionImportResult>("/wishlist/import", {
+      method: "POST",
+      body: JSON.stringify({ cards, note }),
+    }),
+  setQuantity: (oracleId: string, quantity: number) =>
+    apiFetch<{ status: string }>(`/wishlist/${oracleId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ quantity }),
+    }),
+  /** L'achat est fait : la carte rejoint la collection, en tout ou en partie. */
+  acquire: (oracleId: string, quantity?: number) =>
+    apiFetch<{ moved: number; remaining: number }>(
+      `/wishlist/${oracleId}/acquire${quantity ? `?quantity=${quantity}` : ""}`,
+      { method: "POST" }
+    ),
+}

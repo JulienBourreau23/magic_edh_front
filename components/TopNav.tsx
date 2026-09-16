@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/deck-ideas", label: "Quel deck monter" },
   { href: "/deck-plans", label: "Monter 4 decks" },
   { href: "/competitive", label: "Deck compétitif" },
+  { href: "/wishlist", label: "Liste de recherche" },
   { href: "/balance", label: "Équilibrer" },
   { href: "/matchup", label: "Comparer" },
 ]
