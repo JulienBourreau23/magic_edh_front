@@ -238,7 +238,9 @@ export interface Suggestions {
   diagnostics: RoleDiagnostic[]
   manabase: Manabase
   to_add: { role: string; label: string; missing: number; reason: string; candidates: SuggestionCandidate[] }[]
-  to_cut: { card: Pick<Card, "scryfall_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded">; reason: string }[]
+  /** `card` est nul quand le retrait n'a pas de carte à désigner — un combo
+   *  dont les deux moitiés sont des commandants ne se casse pas. */
+  to_cut: { card: Pick<Card, "scryfall_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded"> | null; reason: string }[]
 }
 
 export interface MatchupAxis {
@@ -334,7 +336,7 @@ export interface BalancePlan {
   deck_id: number
   name: string
   bracket: BracketEstimate
-  cuts: { card: Pick<Card, "scryfall_id" | "name" | "name_fr" | "price_eur">; reason: string }[]
+  cuts: { card: Pick<Card, "scryfall_id" | "name" | "name_fr" | "price_eur"> | null; reason: string }[]
   adds: { role: string; label: string; missing: number; reason: string; candidates: OwnedCandidate[] }[]
   free_picks: number
   purchases_cost_eur: number

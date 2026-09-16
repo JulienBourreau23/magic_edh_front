@@ -91,9 +91,12 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
                 <CardTitle className="text-base">À retirer ({data.to_cut.length})</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
-                {data.to_cut.map((cut) => (
-                  <div key={cut.card.scryfall_id} className="flex flex-wrap justify-between gap-2">
-                    <span className="font-medium">{displayName(cut.card)}</span>
+                {data.to_cut.map((cut, index) => (
+                  <div key={cut.card?.scryfall_id ?? `sans-carte-${index}`}
+                       className="flex flex-wrap justify-between gap-2">
+                    <span className="font-medium">
+                      {cut.card ? displayName(cut.card) : "Aucune carte à retirer"}
+                    </span>
                     <span className="text-muted-foreground">{cut.reason}</span>
                   </div>
                 ))}

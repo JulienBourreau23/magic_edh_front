@@ -129,10 +129,15 @@ export default function BalancePage() {
                     <span className="text-xs font-medium text-muted-foreground">
                       À retirer (gratuit, fait baisser le bracket)
                     </span>
-                    {plan.cuts.map((cut) => (
-                      <div key={cut.card.scryfall_id}>
-                        <span className="font-medium">{displayName(cut.card)}</span>{" "}
-                        <span className="text-muted-foreground">— {cut.reason}</span>
+                    {plan.cuts.map((cut, index) => (
+                      <div key={cut.card?.scryfall_id ?? `sans-carte-${index}`}>
+                        {cut.card && (
+                          <span className="font-medium">{displayName(cut.card)} </span>
+                        )}
+                        <span className="text-muted-foreground">
+                          {cut.card ? "— " : ""}
+                          {cut.reason}
+                        </span>
                       </div>
                     ))}
                   </div>
