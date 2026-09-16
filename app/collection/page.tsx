@@ -1,12 +1,20 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { CardBinder } from "@/components/CardBinder"
 import { CardSearch } from "@/components/CardSearch"
+import { CollectionFilters } from "@/components/CollectionFilters"
+import {
+  EMPTY_FILTERS,
+  availableKeywords,
+  availableRoles,
+  filterCollection,
+  type CollectionFilterState,
+} from "@/lib/collection-filters"
 import {
   collectionApi,
   displayName,
@@ -18,16 +26,20 @@ import {
 export default function CollectionPage() {
   const [entries, setEntries] = useState<CollectionEntry[]>([])
   const [stats, setStats] = useState<CollectionStats | null>(null)
-  const [search, setSearch] = useState("")
+  const [filters, setFilters] = useState<CollectionFilterState>(EMPTY_FILTERS)
+  const [view, setView] = useState<"liste" | "classeur">("liste")
   const [bulk, setBulk] = useState("")
   const [importing, setImporting] = useState(false)
   const [lastImport, setLastImport] = useState<CollectionImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // La collection tient en mémoire (quelques centaines de cartes) : on la
+  // charge une fois et tous les filtres travaillent côté client. Un
+  // aller-retour par frappe rendrait les filtres saccadés sans rien apporter.
   const refresh = useCallback(
-    (term: string) =>
+    () =>
       collectionApi
-        .list(term || undefined)
+        .list()
         .then((data) => {
           setEntries(data.cards)
           setStats(data.stats)
@@ -38,16 +50,19 @@ export default function CollectionPage() {
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => refresh(search.trim()), 250)
-    return () => clearTimeout(timer)
-  }, [refresh, search])
+    refresh()
+  }, [refresh])
+
+  const visible = useMemo(() => filterCollection(entries, filters), [entries, filters])
+  const keywords = useMemo(() => availableKeywords(entries), [entries])
+  const roles = useMemo(() => availableRoles(entries), [entries])
 
   async function runImport() {
     setImporting(true)
     try {
       setLastImport(await collectionApi.importBulk(bulk))
       setBulk("")
-      await refresh(search.trim())
+      await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inattendue")
     } finally {
@@ -63,7 +78,7 @@ export default function CollectionPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inattendue")
     }
-    await refresh(search.trim())
+    await refresh()
   }
 
   return (
@@ -134,25 +149,52 @@ export default function CollectionPage() {
           <CardSearch
             onSelect={async (card) => {
               await collectionApi.add(card.scryfall_id)
-              await refresh(search.trim())
+              await refresh()
             }}
           />
         </CardContent>
       </Card>
 
       <div className="flex flex-col gap-3">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filtrer la collection..."
-          className="max-w-sm"
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-medium">Mes cartes</h2>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant={view === "liste" ? "default" : "outline"}
+              onClick={() => setView("liste")}
+            >
+              Liste
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "classeur" ? "default" : "outline"}
+              onClick={() => setView("classeur")}
+            >
+              Classeur
+            </Button>
+          </div>
+        </div>
+
+        <CollectionFilters
+          filters={filters}
+          onChange={setFilters}
+          keywords={keywords}
+          roles={roles}
+          resultCount={visible.length}
+          totalCount={entries.length}
         />
+
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        {entries.length === 0 ? (
+        {visible.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {search ? "Aucune carte ne correspond." : "Collection vide — commence par la saisie en masse."}
+            {entries.length === 0
+              ? "Collection vide — commence par la saisie en masse."
+              : "Aucune carte ne correspond aux filtres."}
           </p>
+        ) : view === "classeur" ? (
+          <CardBinder entries={visible} onQuantityChange={changeQuantity} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
@@ -165,7 +207,7 @@ export default function CollectionPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry) => (
+                {visible.map((entry) => (
                   <tr key={entry.oracle_id} className="border-b last:border-0">
                     <td className="py-1.5 pr-4">{displayName(entry)}</td>
                     <td className="py-1.5 pr-4 text-xs text-muted-foreground">

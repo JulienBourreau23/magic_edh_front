@@ -116,6 +116,8 @@ export interface Card {
   legal_duel: boolean
   game_changer: boolean
   categories: string[]
+  /** Mots-clés Scryfall, en anglais (« Flying », « Infect ») : voir `lib/mtg-labels`. */
+  keywords?: string[]
   produced_mana: string[]
   edhrec_rank: number | null
   allows_multiple: boolean
