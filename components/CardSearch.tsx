@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { cardsApi, displayName, type Card } from "@/lib/api"
+import { cardImageUrl, cardsApi, displayName, type Card } from "@/lib/api"
 
 /** Recherche de carte avec anti-rebond, utilisée pour ajouter ou corriger une carte. */
 export function CardSearch({
@@ -55,11 +55,27 @@ export function CardSearch({
                   setResults([])
                 }}
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{displayName(card)}</span>
-                  {displayName(card) !== card.name && (
-                    <span className="truncate text-xs text-muted-foreground">{card.name}</span>
-                  )}
+                {/* La vignette évite la confusion entre deux cartes au nom
+                    proche — « Nissa, voyante de Vastebois » et « Nissa, sage
+                    animiste » ne se distinguent pas autrement. */}
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="h-10 w-7 shrink-0 overflow-hidden rounded border bg-muted">
+                    {cardImageUrl(card) && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={cardImageUrl(card)!}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{displayName(card)}</span>
+                    {displayName(card) !== card.name && (
+                      <span className="truncate text-xs text-muted-foreground">{card.name}</span>
+                    )}
+                  </span>
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {card.type_line?.split("—")[0]?.trim()}

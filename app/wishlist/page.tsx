@@ -10,6 +10,7 @@ import { CardTile } from "@/components/CardTile"
 import {
   displayName,
   wishlistApi,
+  type Card as MtgCard,
   type CollectionImportResult,
   type WishlistEntry,
   type WishlistStats,
@@ -22,6 +23,9 @@ export default function WishlistPage() {
   const [importing, setImporting] = useState(false)
   const [lastImport, setLastImport] = useState<CollectionImportResult | null>(null)
   const [view, setView] = useState<"liste" | "visuels">("liste")
+  // Confirmation visuelle du dernier ajout : deux cartes au nom proche ne se
+  // distinguent que par l'image, et une erreur ici se solde par un achat.
+  const [lastAdded, setLastAdded] = useState<MtgCard | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(
@@ -94,10 +98,44 @@ export default function WishlistPage() {
             <CardTitle className="text-base">Chercher une carte</CardTitle>
           </CardHeader>
           <CardContent>
-            <CardSearch onSelect={(card) => run(wishlistApi.add(card.scryfall_id))} />
+            <CardSearch
+              onSelect={async (card) => {
+                await run(wishlistApi.add(card.scryfall_id))
+                setLastAdded(card)
+              }}
+            />
             <p className="mt-2 text-xs text-muted-foreground">
               La recherche porte sur toute la base, pas seulement sur ta collection.
             </p>
+            {lastAdded && (
+              <div className="mt-3 flex items-center gap-3 rounded-lg border p-2">
+                <div className="w-16 shrink-0">
+                  <CardTile card={lastAdded} caption="" />
+                </div>
+                <div className="flex flex-col text-sm">
+                  <span className="font-medium">{displayName(lastAdded)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ajoutée à la liste de recherche
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-1 h-6 w-fit px-2 text-xs"
+                    onClick={async () => {
+                      // On retire l'exemplaire ajouté, pas la ligne : la carte
+                      // pouvait déjà être cherchée en plusieurs exemplaires.
+                      const ligne = entries.find((e) => e.oracle_id === lastAdded.oracle_id)
+                      await run(
+                        wishlistApi.setQuantity(lastAdded.oracle_id, (ligne?.quantity ?? 1) - 1)
+                      )
+                      setLastAdded(null)
+                    }}
+                  >
+                    Annuler l&apos;ajout
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
