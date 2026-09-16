@@ -10,8 +10,12 @@ export class ApiError extends Error {
 }
 
 type ApiInit = Omit<RequestInit, "body"> & {
-  /** Objet sérialisé en JSON. */
-  body?: unknown
+  /**
+   * Objet **non sérialisé** : `apiFetch` s'en charge. Le type refuse une
+   * chaîne exprès — passer un `JSON.stringify(...)` ici l'encodait deux fois,
+   * et l'API répondait 422 sur un corps qui avait pourtant l'air juste.
+   */
+  body?: Record<string, unknown> | unknown[]
   /** Joindre le jeton (défaut : true). */
   auth?: boolean
   errorMessage?: string
@@ -701,21 +705,15 @@ export interface WishlistStats {
 
 export const wishlistApi = {
   list: () => apiFetch<{ cards: WishlistEntry[]; stats: WishlistStats }>("/wishlist"),
-  add: (scryfallId: string, quantity = 1, note?: string) =>
+  add: (scryfall_id: string, quantity = 1, note?: string) =>
     apiFetch<{ status: string }>("/wishlist", {
       method: "POST",
-      body: JSON.stringify({ scryfall_id: scryfallId, quantity, note }),
+      body: { scryfall_id, quantity, note },
     }),
   importBulk: (cards: string, note?: string) =>
-    apiFetch<CollectionImportResult>("/wishlist/import", {
-      method: "POST",
-      body: JSON.stringify({ cards, note }),
-    }),
+    apiFetch<CollectionImportResult>("/wishlist/import", { method: "POST", body: { cards, note } }),
   setQuantity: (oracleId: string, quantity: number) =>
-    apiFetch<{ status: string }>(`/wishlist/${oracleId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ quantity }),
-    }),
+    apiFetch<{ status: string }>(`/wishlist/${oracleId}`, { method: "PATCH", body: { quantity } }),
   /** L'achat est fait : la carte rejoint la collection, en tout ou en partie. */
   acquire: (oracleId: string, quantity?: number) =>
     apiFetch<{ moved: number; remaining: number }>(
