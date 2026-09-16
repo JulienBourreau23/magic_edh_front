@@ -595,6 +595,18 @@ export interface CompetitiveCommander {
   image_uri: string | null
   image_downloaded: boolean
   game_changer: boolean
+  /**
+   * L'archétype dont la collection couvre la plus grande part : ce qui classe
+   * la grille. Nul tant que la synchronisation EDHREC n'a pas tourné.
+   */
+  best_theme: {
+    slug: string
+    label: string
+    coverage: number
+    cards_owned: number
+    cards_legal: number
+    deck_count: number
+  } | null
 }
 
 export interface CompetitiveTheme {

@@ -104,29 +104,50 @@ export default function CompetitivePage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <Step n={1} title="Le commandant, parmi ceux de ta collection">
+      <Step n={1} title="Le commandant — classé par ce que ta collection permet d'en tirer">
         {commanders.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucun commandant en collection. Importe un deck monté ou ajoute-le à la main.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {commanders.map((entry) => (
-              <button
-                key={entry.oracle_id}
-                type="button"
-                onClick={() => chooseCommander(entry)}
-                className={`rounded-lg p-1 text-left transition ${
-                  commander?.oracle_id === entry.oracle_id
-                    ? "ring-2 ring-primary"
-                    : "hover:bg-muted"
-                }`}
-                aria-pressed={commander?.oracle_id === entry.oracle_id}
-              >
-                <CardTile card={entry} caption={displayName(entry)} />
-              </button>
-            ))}
-          </div>
+          <>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Ce n&apos;est pas un classement de puissance : c&apos;est celui de ce que tu peux
+              monter <em>maintenant</em>. Un commandant très fort dont tu ne possèdes aucune pièce
+              n&apos;aidera pas ce soir. Le pourcentage est la part de son meilleur archétype déjà
+              présente en collection.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+              {commanders.map((entry) => (
+                <button
+                  key={entry.oracle_id}
+                  type="button"
+                  onClick={() => chooseCommander(entry)}
+                  className={`rounded-lg p-1 text-left transition ${
+                    commander?.oracle_id === entry.oracle_id
+                      ? "ring-2 ring-primary"
+                      : "hover:bg-muted"
+                  }`}
+                  aria-pressed={commander?.oracle_id === entry.oracle_id}
+                >
+                  <CardTile card={entry} caption={displayName(entry)} />
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {entry.best_theme ? (
+                      <>
+                        {entry.best_theme.label} —{" "}
+                        <span className="tabular-nums">
+                          {Math.round(entry.best_theme.coverage * 100)}%
+                        </span>{" "}
+                        en collection
+                      </>
+                    ) : (
+                      "archétypes inconnus — lance la synchro EDHREC"
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </Step>
 
