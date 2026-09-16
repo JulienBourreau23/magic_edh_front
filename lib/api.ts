@@ -602,9 +602,11 @@ export interface CompetitiveCommander {
   best_theme: {
     slug: string
     label: string
-    coverage: number
-    cards_owned: number
-    cards_legal: number
+    /** Somme des taux d'inclusion des 63 meilleures cartes possédées : ce qui classe. */
+    consensus: number
+    cards_usable: number
+    /** Part de l'optimum de cet archétype. 99 % d'une référence molle vaut moins que 93 % d'une forte. */
+    score: number
     deck_count: number
   } | null
 }

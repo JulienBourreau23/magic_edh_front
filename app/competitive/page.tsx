@@ -112,10 +112,12 @@ export default function CompetitivePage() {
         ) : (
           <>
             <p className="mb-3 text-xs text-muted-foreground">
-              Ce n&apos;est pas un classement de puissance : c&apos;est celui de ce que tu peux
-              monter <em>maintenant</em>. Un commandant très fort dont tu ne possèdes aucune pièce
-              n&apos;aidera pas ce soir. Le pourcentage est la part de son meilleur archétype déjà
-              présente en collection.
+              Classé par ce que tu peux monter <em>maintenant</em>, pas par puissance brute : un
+              commandant très fort dont tu ne possèdes aucune pièce n&apos;aide pas ce soir. Le{" "}
+              <strong>poids</strong> est la somme des taux d&apos;inclusion de tes 63 meilleures
+              cartes pour cet archétype — une pièce maîtresse jouée dans 80 % des decks y compte
+              seize fois plus qu&apos;une carte de niche jouée dans 5 %. C&apos;est lui qui trie. Le
+              pourcentage dit à quel point tu approches l&apos;optimum de cet archétype-là.
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
               {commanders.map((entry) => (
@@ -134,11 +136,17 @@ export default function CompetitivePage() {
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {entry.best_theme ? (
                       <>
-                        {entry.best_theme.label} —{" "}
+                        {entry.best_theme.label} ·{" "}
+                        <span className="tabular-nums">{entry.best_theme.cards_usable}</span>{" "}
+                        cartes · poids{" "}
                         <span className="tabular-nums">
-                          {Math.round(entry.best_theme.coverage * 100)}%
+                          {entry.best_theme.consensus.toFixed(1)}
                         </span>{" "}
-                        en collection
+                        ·{" "}
+                        <span className="tabular-nums">
+                          {Math.round(entry.best_theme.score * 100)}%
+                        </span>{" "}
+                        de l&apos;optimum
                       </>
                     ) : (
                       "archétypes inconnus — lance la synchro EDHREC"
