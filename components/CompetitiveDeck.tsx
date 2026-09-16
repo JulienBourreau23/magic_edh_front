@@ -143,8 +143,9 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
             .join(", ")}
         </p>
         <p className="text-xs text-muted-foreground">
-          Aucun terrain n&apos;est acheté : une manabase achetée coûte vite plus cher que le reste du
-          deck, et des terrains de base font le travail.
+          Les terrains de base complètent la manabase au prorata des symboles de mana demandés. Les
+          non-basiques qui vaudraient mieux figurent dans les achats ci-dessous : sur un deck de
+          compétition unique, la manabase est souvent le premier poste qui manque.
         </p>
       </div>
 
@@ -175,7 +176,9 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
           </ul>
           <p className="text-xs text-muted-foreground">
             Le pourcentage est la part des decks de l&apos;archétype qui jouent la carte : un achat
-            n&apos;est proposé que s&apos;il est plus joué que celle qu&apos;il remplace.
+            n&apos;est proposé que s&apos;il est plus joué que celle qu&apos;il remplace. Le plafond
+            de 50 € s&apos;applique <strong>par carte</strong>. Les terrains sont inclus : ils
+            évincent d&apos;abord un terrain de base, puis les non-basiques les moins joués.
           </p>
         </div>
       )}
