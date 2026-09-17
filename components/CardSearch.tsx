@@ -16,6 +16,10 @@ export function CardSearch({
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<Card[]>([])
   const [loading, setLoading] = useState(false)
+  // Carte survolée : son visuel en grand permet de lire le texte avant de
+  // valider. La vignette de 28 px suffit à distinguer deux illustrations, pas
+  // à vérifier qu'on prend la bonne version d'une carte.
+  const [preview, setPreview] = useState<Card | null>(null)
 
   // La liste affichée est dérivée de la requête courante : inutile de vider
   // l'état à chaque frappe, il suffit de ne pas montrer un résultat périmé.
@@ -49,10 +53,18 @@ export function CardSearch({
                 type="button"
                 variant="ghost"
                 className="h-auto w-full justify-between gap-2 px-2 py-1 text-left"
+                // `onFocus` autant que `onMouseEnter` : sans lui, la
+                // vérification ne marcherait qu'à la souris, alors que la
+                // liste se parcourt aussi au clavier.
+                onMouseEnter={() => setPreview(card)}
+                onFocus={() => setPreview(card)}
+                onMouseLeave={() => setPreview((current) => (current === card ? null : current))}
+                onBlur={() => setPreview((current) => (current === card ? null : current))}
                 onClick={async () => {
                   await onSelect(card)
                   setQuery("")
                   setResults([])
+                  setPreview(null)
                 }}
               >
                 {/* La vignette évite la confusion entre deux cartes au nom
@@ -85,6 +97,29 @@ export function CardSearch({
             </li>
           ))}
         </ul>
+      )}
+
+      {/*
+        Panneau fixe plutôt qu'infobulle collée à la ligne : la liste défile
+        en `overflow-y-auto`, donc un agrandissement placé à l'intérieur y
+        serait rogné, et placé à côté il déborderait de l'écran sur une
+        fenêtre étroite. `pointer-events-none` le rend inoffensif même quand
+        il recouvre du contenu — on continue de cliquer au travers.
+        Masqué sous `lg` : sans survol au doigt, il ne servirait à rien sur
+        mobile, où il masquerait la moitié de l'écran.
+      */}
+      {preview && cardImageUrl(preview) && (
+        <div // Les visuels stockés sont en taille « normal » de Scryfall (488 px de
+          // large) : au-delà, on agrandirait du flou. 384 px, puis 448 px sur
+          // les écrans larges, restent en deçà — le texte reste net.
+          className="pointer-events-none fixed right-6 top-1/2 z-50 hidden w-96 -translate-y-1/2 lg:block 2xl:w-[28rem]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cardImageUrl(preview)!}
+            alt={displayName(preview)}
+            className="w-full rounded-xl border bg-card shadow-2xl"
+          />
+        </div>
       )}
     </div>
   )
