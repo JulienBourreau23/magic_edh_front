@@ -802,6 +802,12 @@ export interface MustHaveCard {
   color_identity: string[]
   /** Exemplaires en collection. 0 = à acheter. */
   owned: number
+  /**
+   * Exemplaires déjà dans la liste de recherche. Les quantités s'additionnent
+   * en base : sans cet état affiché, un second clic demanderait un second
+   * exemplaire sans rien dire.
+   */
+  wanted: number
 }
 
 export interface MustHaveGroup {

@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
 import {
+  collectionApi,
   displayName,
   mustHaveApi,
+  wishlistApi,
   type DeckFormat,
   type MustHave,
   type MustHaveCard,
@@ -16,6 +18,7 @@ import {
 } from "@/lib/api"
 
 type View = "visuels" | "liste"
+type Destination = "collection" | "wishlist"
 
 export default function MustHavePage() {
   const [format, setFormat] = useState<DeckFormat>("commander")
@@ -26,6 +29,10 @@ export default function MustHavePage() {
   const [view, setView] = useState<View>("visuels")
   const [data, setData] = useState<MustHave | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Clés `oracle_id:destination` en cours d'envoi : c'est ce qui empêche un
+  // double-clic de demander deux exemplaires, les quantités s'additionnant en
+  // base.
+  const [pending, setPending] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     mustHaveApi
@@ -36,6 +43,53 @@ export default function MustHavePage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
   }, [format, maxPrice])
+
+  /**
+   * Ajout d'un exemplaire, puis mise à jour locale plutôt que rechargement :
+   * la page fait seize requêtes SQL, la recharger à chaque clic rendrait la
+   * saisie pénible alors qu'on ajoute des cartes à la chaîne.
+   *
+   * La mise à jour parcourt **tous** les groupes : une même carte peut figurer
+   * dans plusieurs types (un « Artifact Creature » est dans les deux), et
+   * n'en marquer qu'un laisserait l'autre affirmer le contraire.
+   */
+  async function add(card: MustHaveCard, destination: Destination) {
+    const key = `${card.oracle_id}:${destination}`
+    setPending((p) => new Set(p).add(key))
+    try {
+      if (destination === "collection") {
+        await collectionApi.add(card.scryfall_id)
+      } else {
+        await wishlistApi.add(card.scryfall_id, 1, "Ajoutée depuis les cartes à avoir")
+      }
+      setData((prev) =>
+        prev && {
+          ...prev,
+          groups: prev.groups.map((group) => ({
+            ...group,
+            cards: group.cards.map((c) =>
+              c.oracle_id === card.oracle_id
+                ? {
+                    ...c,
+                    owned: destination === "collection" ? c.owned + 1 : c.owned,
+                    wanted: destination === "wishlist" ? c.wanted + 1 : c.wanted,
+                  }
+                : c
+            ),
+          })),
+        }
+      )
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inattendue")
+    } finally {
+      setPending((p) => {
+        const next = new Set(p)
+        next.delete(key)
+        return next
+      })
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,18 +157,69 @@ export default function MustHavePage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {data?.groups.map((group) => (
-        <TypeSection key={group.key} group={group} maxPrice={data.max_price_eur} view={view} />
+        <TypeSection
+          key={group.key}
+          group={group}
+          maxPrice={data.max_price_eur}
+          view={view}
+          onAdd={add}
+          pending={pending}
+        />
       ))}
     </div>
   )
 }
 
-/** Prix à payer, ou la mention qu'il n'y a rien à payer. */
+/** Les deux gestes possibles sur une carte de la liste. */
+function AddButtons({
+  card,
+  onAdd,
+  pending,
+}: {
+  card: MustHaveCard
+  onAdd: (card: MustHaveCard, destination: Destination) => void
+  pending: Set<string>
+}) {
+  return (
+    <div className="flex gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 px-2 text-xs"
+        disabled={pending.has(`${card.oracle_id}:collection`)}
+        onClick={() => onAdd(card, "collection")}
+        aria-label={`Ajouter ${displayName(card)} à la collection`}
+      >
+        + collection
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 px-2 text-xs"
+        disabled={pending.has(`${card.oracle_id}:wishlist`)}
+        onClick={() => onAdd(card, "wishlist")}
+        aria-label={`Ajouter ${displayName(card)} à la liste de recherche`}
+      >
+        + recherche
+      </Button>
+    </div>
+  )
+}
+
+/** Prix à payer, ou l'état de la carte quand il n'y a rien à payer. */
 function Price({ card }: { card: MustHaveCard }) {
   if (card.owned > 0) {
     return (
       <Badge variant="secondary">
         en collection{card.owned > 1 ? ` ×${card.owned}` : ""}
+      </Badge>
+    )
+  }
+  if (card.wanted > 0) {
+    return (
+      <Badge variant="outline">
+        recherchée{card.wanted > 1 ? ` ×${card.wanted}` : ""} —{" "}
+        {Number(card.price_eur).toFixed(2)} €
       </Badge>
     )
   }
@@ -125,12 +230,21 @@ function TypeSection({
   group,
   maxPrice,
   view,
+  onAdd,
+  pending,
 }: {
   group: MustHaveGroup
   maxPrice: number
   view: View
+  onAdd: (card: MustHaveCard, destination: Destination) => void
+  pending: Set<string>
 }) {
   if (group.cards.length === 0) return null
+
+  // Recomptés ici et non lus depuis la réponse : un ajout met la liste à jour
+  // localement, et les compteurs du serveur seraient aussitôt périmés.
+  const owned = group.cards.filter((c) => c.owned > 0).length
+  const toBuy = group.cards.length - owned
 
   return (
     <Card>
@@ -138,7 +252,7 @@ function TypeSection({
         <CardTitle className="text-base">
           {group.label}{" "}
           <span className="font-normal text-muted-foreground">
-            — {group.owned_count} en collection, {group.to_buy_count} à acheter
+            — {owned} en collection, {toBuy} à acheter
           </span>
         </CardTitle>
       </CardHeader>
@@ -159,6 +273,7 @@ function TypeSection({
                   </span>
                   <Price card={card} />
                 </div>
+                <AddButtons card={card} onAdd={onAdd} pending={pending} />
               </div>
             ))}
           </div>
@@ -169,7 +284,8 @@ function TypeSection({
               <th className="w-12 py-1.5 font-medium">Rang</th>
               <th className="py-1.5 font-medium">Carte</th>
               <th className="w-28 py-1.5 font-medium">Coût</th>
-              <th className="w-32 py-1.5 text-right font-medium">Prix</th>
+              <th className="w-44 py-1.5 text-right font-medium">Prix</th>
+              <th className="w-56 py-1.5 text-right font-medium">Ajouter à</th>
             </tr>
           </thead>
           <tbody>
@@ -187,6 +303,11 @@ function TypeSection({
                 <td className="py-1.5 font-mono text-xs">{card.mana_cost}</td>
                 <td className="py-1.5 text-right">
                   <Price card={card} />
+                </td>
+                <td className="py-1.5">
+                  <div className="flex justify-end">
+                    <AddButtons card={card} onAdd={onAdd} pending={pending} />
+                  </div>
                 </td>
               </tr>
             ))}
