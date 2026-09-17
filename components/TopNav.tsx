@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/deck-plans", label: "Monter 4 decks" },
   { href: "/competitive", label: "Deck compétitif" },
   { href: "/wishlist", label: "Liste de recherche" },
+  { href: "/must-have", label: "Cartes à avoir" },
   { href: "/balance", label: "Équilibrer" },
   { href: "/matchup", label: "Comparer" },
 ]

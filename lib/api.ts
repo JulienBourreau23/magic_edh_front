@@ -783,3 +783,50 @@ export const wishlistApi = {
       { method: "POST" }
     ),
 }
+
+// --- Cartes à avoir -------------------------------------------------------
+
+/** Une carte du classement, possédée ou à acheter sous le plafond. */
+export interface MustHaveCard {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  type_line: string
+  mana_cost: string | null
+  cmc: number
+  price_eur: number | null
+  edhrec_rank: number
+  image_uri: string | null
+  image_downloaded: boolean
+  color_identity: string[]
+  /** Exemplaires en collection. 0 = à acheter. */
+  owned: number
+}
+
+export interface MustHaveGroup {
+  key: string
+  label: string
+  /** Taille visée du classement : 50, sauf 30 pour les planeswalkers. */
+  top: number
+  cards: MustHaveCard[]
+  owned_count: number
+  to_buy_count: number
+  /**
+   * Cartes du classement écartées faute de tenir sous le plafond. Comptées et
+   * non listées : la liste reste une liste d'achats sans se faire passer pour
+   * un classement complet.
+   */
+  over_budget: number
+}
+
+export interface MustHave {
+  format: string
+  max_price_eur: number
+  groups: MustHaveGroup[]
+}
+
+export const mustHaveApi = {
+  list: (format = "commander", maxPrice = 50) =>
+    apiFetch<MustHave>(`/must-have?format=${format}&max_price=${maxPrice}`),
+}
