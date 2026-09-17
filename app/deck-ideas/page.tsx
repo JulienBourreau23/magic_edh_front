@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
@@ -69,7 +71,14 @@ function IdeaCard({ idea, coreSize }: { idea: DeckIdea; coreSize: number }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          {displayName(idea.commander)}
+          {/* Le nom ouvre la liste détaillée : c'est là qu'on peut remplacer
+              un achat par une carte possédée pour essayer l'archétype. */}
+          <Link
+            href={`/deck-ideas/${idea.commander.oracle_id}`}
+            className="underline decoration-dotted underline-offset-4 hover:decoration-solid"
+          >
+            {displayName(idea.commander)}
+          </Link>
           <Badge variant={percent >= 70 ? "secondary" : "outline"}>{percent} % du noyau</Badge>
           <Badge variant="outline">
             {idea.to_buy_count} carte(s) à acheter · {idea.to_buy_cost_eur.toFixed(2)} €
@@ -87,6 +96,14 @@ function IdeaCard({ idea, coreSize }: { idea: DeckIdea; coreSize: number }) {
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             {idea.owned_count}/{coreSize} possédées
           </span>
+        </div>
+
+        <div>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/deck-ideas/${idea.commander.oracle_id}`}>
+              Voir la decklist et remplacer les achats
+            </Link>
+          </Button>
         </div>
 
         {idea.over_budget_count > 0 && (

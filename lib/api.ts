@@ -522,6 +522,32 @@ export interface DeckIdeaCard {
   /** Part des decks de ce commandant qui jouent la carte, d'après EDHREC. */
   inclusion_rate: number | null
   game_changer: boolean
+  /** Rôles calculés : servent à remplacer une carte par une autre du même rôle. */
+  categories: string[]
+  edhrec_rank: number | null
+  owned_quantity: number
+}
+
+/** Une carte du noyau proposé, avec le fait qu'on la possède ou non. */
+export interface DeckIdeaCoreCard extends DeckIdeaCard {
+  owned: boolean
+}
+
+export interface DeckIdeaDetail {
+  commander: DeckIdea["commander"]
+  format: string
+  max_price_eur: number
+  nonland_core: number
+  /** Le deck existe déjà : inutile de proposer de le monter. */
+  existing_deck_id: number | null
+  core: DeckIdeaCoreCard[]
+  /**
+   * Cartes possédées, hors noyau, utilisables avec ce commandant. Le
+   * remplacement se fait côté navigateur à partir de ce vivier : instantané,
+   * réversible, et rien n'est écrit tant qu'on n'a pas décidé que le deck
+   * existe.
+   */
+  substitutes: DeckIdeaCard[]
 }
 
 export interface DeckIdea {
@@ -555,6 +581,8 @@ export interface DeckIdeas {
 
 export const deckIdeasApi = {
   list: (maxPrice = 50) => apiFetch<DeckIdeas>(`/deck-ideas?max_price=${maxPrice}`),
+  detail: (commanderOracleId: string, maxPrice = 50) =>
+    apiFetch<DeckIdeaDetail>(`/deck-ideas/${commanderOracleId}?max_price=${maxPrice}`),
 }
 
 /** Carte du noyau d'un deck planifié : possédée ou à acheter. */
