@@ -26,7 +26,9 @@ export default function LoginPage() {
       })
       setToken(token)
       setError(null)
-      router.push("/decks")
+      // Le tableau de bord est la page d'arrivée : c'est là qu'on voit
+      // d'un coup d'œil où en est la collection.
+      router.push("/")
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erreur inattendue")
     } finally {

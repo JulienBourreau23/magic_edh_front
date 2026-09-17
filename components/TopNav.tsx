@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle"
 import { clearToken } from "@/lib/auth"
 
 const LINKS = [
+  { href: "/", label: "Vue d'ensemble" },
   { href: "/decks", label: "Mes decks" },
   { href: "/decks/import", label: "Importer une decklist" },
   { href: "/collection", label: "Ma collection" },
@@ -29,7 +30,7 @@ export function TopNav() {
   return (
     <header className="border-b">
       <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-        <Link href="/decks" className="font-semibold">
+        <Link href="/" className="font-semibold">
           Magic EDH
         </Link>
 

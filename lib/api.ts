@@ -857,3 +857,38 @@ export const mustHaveApi = {
   list: (format = "commander", maxPrice = 50) =>
     apiFetch<MustHave>(`/must-have?format=${format}&max_price=${maxPrice}`),
 }
+
+// --- Récapitulatif de collection ------------------------------------------
+
+export interface CoverageGroup {
+  key: string
+  label: string
+  /** Taille réelle du classement : les Batailles sont moins de 50 en tout. */
+  listed: number
+  /** Taille visée (50, ou 30 pour les planeswalkers). */
+  target: number
+  owned: number
+  cards: MustHaveCard[]
+}
+
+export interface RankBand {
+  label: string
+  cards: number
+  copies: number
+}
+
+export interface CollectionCoverage {
+  format: string
+  stats: CollectionStats
+  groups: CoverageGroup[]
+  rank_distribution: RankBand[]
+}
+
+export const coverageApi = {
+  /**
+   * Sans plafond de prix, contrairement à `mustHaveApi` : la question est
+   * « où en est ma collection », pas « qu'est-ce que je peux acheter ».
+   */
+  get: (format = "commander") =>
+    apiFetch<CollectionCoverage>(`/collection/coverage?format=${format}`),
+}

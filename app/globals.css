@@ -81,6 +81,12 @@
   /* Séries « deck A / deck B » — jamais réutilisées pour du mana. */
   --series-a: #2a78d6;
   --series-b: #eb6834;
+  /* Teinte séquentielle à une seule série (récapitulatif de collection).
+     Distincte de --series-a/b, qui désignent deux decks comparés : ici il n'y
+     a pas d'identité à distinguer, seulement une magnitude. Validée contre
+     --card, dans les deux modes. L'accent --primary avait été essayé d'abord
+     et échoue au plancher de chroma : en graphique, il lit gris. */
+  --chart-seq: #a56300;
   --grid-line: oklch(0.9 0.01 85);
 
   --sidebar: oklch(0.96 0.008 90);
@@ -125,6 +131,9 @@
   --mana-g: #2a8a28;
   --series-a: #3987e5;
   --series-b: #d95926;
+  /* Pas un éclaircissement automatique de la valeur claire : cette teinte-ci
+     est validée séparément contre la surface sombre. */
+  --chart-seq: #c38323;
   --grid-line: oklch(1 0 0 / 12%);
 
   --sidebar: oklch(0.19 0.008 265);
