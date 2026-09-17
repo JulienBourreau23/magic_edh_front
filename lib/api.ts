@@ -161,15 +161,30 @@ export interface TwoCardCombo {
   popularity: number | null
 }
 
+/** Carte citée pour expliquer un plancher de bracket. */
+export interface BracketCardRef {
+  name: string
+  name_fr: string | null
+  scryfall_id: string
+  is_commander: boolean
+}
+
 export interface BracketEstimate {
-  game_changers: { name: string; name_fr: string | null; scryfall_id: string; is_commander: boolean }[]
+  game_changers: BracketCardRef[]
   game_changer_count: number
   min: number
   max: number
   label: string
   two_card_combos: TwoCardCombo[]
   winning_combo_count: number
-  qualitative_signals: { tutors: number; extra_turns: number; stax: number }
+  /** Interdite jusqu'au bracket 3 inclus : le critère le plus punitif. */
+  mass_land_denial: BracketCardRef[]
+  /** Interdits au bracket 1 ; les brackets 2 et 3 n'interdisent que l'enchaînement. */
+  extra_turns: BracketCardRef[]
+  /** Ce qui a fixé le plancher, en clair. Vide si rien ne l'a relevé. */
+  floor_reasons: string[]
+  /** Comptés et affichés, mais sans effet : ce ne sont pas des critères officiels. */
+  qualitative_signals: { tutors: number; stax: number }
   note: string
 }
 

@@ -118,6 +118,30 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
             <CardTitle className="text-base">{bracket.label}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+            {bracket.floor_reasons.length > 0 && (
+              <ul className="flex flex-col gap-1">
+                {bracket.floor_reasons.map((reason) => (
+                  <li key={reason} className="text-foreground">
+                    {reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {bracket.mass_land_denial.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p>
+                  Destruction de terrains de masse — interdite jusqu&apos;au bracket 3 inclus, donc
+                  suffisante à elle seule pour classer le deck en bracket 4 :
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {bracket.mass_land_denial.map((card) => (
+                    <li key={card.scryfall_id}>
+                      <Badge variant="destructive">{displayName(card)}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p>{bracket.game_changer_count} carte(s) Game Changer (liste officielle du Commander Format Panel).</p>
             {bracket.game_changers.length > 0 && (
               <ul className="flex flex-wrap gap-1.5">
@@ -163,10 +187,26 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
                 </p>
               </div>
             )}
+            {bracket.extra_turns.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p>
+                  {bracket.extra_turns.length} carte(s) de tour supplémentaire. Le bracket 1 les
+                  interdit ; les brackets 2 et 3 ne refusent que de les <em>enchaîner</em>, ce
+                  qu&apos;une liste de cartes ne permet pas de constater — à toi de juger.
+                </p>
+                <ul className="flex flex-wrap gap-1.5">
+                  {bracket.extra_turns.map((card) => (
+                    <li key={card.scryfall_id}>
+                      <Badge variant="secondary">{displayName(card)}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="text-xs">
-              Signaux non automatisables : {bracket.qualitative_signals.tutors} tuteur(s),{" "}
-              {bracket.qualitative_signals.extra_turns} tour(s) supplémentaire(s),{" "}
-              {bracket.qualitative_signals.stax} effet(s) stax.
+              Sans effet sur le bracket : {bracket.qualitative_signals.tutors} tuteur(s) — le texte
+              officiel en parle sans fixer de seuil — et {bracket.qualitative_signals.stax} effet(s)
+              stax, qui n&apos;est pas un critère officiel.
             </p>
             <p className="text-xs">{bracket.note}</p>
           </CardContent>
