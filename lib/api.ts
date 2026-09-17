@@ -294,8 +294,14 @@ export interface SimulationResponse {
 }
 
 export interface SuggestionCandidate extends Pick<Card,
-  "scryfall_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded" | "type_line" | "mana_cost"> {
+  "scryfall_id" | "oracle_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded" | "type_line" | "mana_cost"> {
   edhrec_rank: number | null
+}
+
+/** Carte refusée pour ce deck : « ne me la propose plus ». */
+export interface IgnoredCard extends Card {
+  reason: string | null
+  created_at: string
 }
 
 export interface Suggestions {
@@ -308,7 +314,14 @@ export interface Suggestions {
   to_add: { role: string; label: string; missing: number; reason: string; candidates: SuggestionCandidate[] }[]
   /** `card` est nul quand le retrait n'a pas de carte à désigner — un combo
    *  dont les deux moitiés sont des commandants ne se casse pas. */
-  to_cut: { card: Pick<Card, "scryfall_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded"> | null; reason: string }[]
+  to_cut: { card: Pick<Card, "scryfall_id" | "oracle_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded"> | null; reason: string }[]
+  /**
+   * Les cartes refusées pour ce deck, avec de quoi les afficher et annuler.
+   * Elles voyagent avec les conseils parce que c'est le seul écran d'où on
+   * peut revenir dessus — une liste invisible serait un piège.
+   */
+  ignored: IgnoredCard[]
+  ignored_count: number
 }
 
 export interface MatchupAxis {
@@ -466,6 +479,14 @@ export const decksApi = {
       `/decks/${id}/suggestions?max_price=${maxPrice}` +
       (targetBracket ? `&target_bracket=${targetBracket}` : "")
     ),
+  /** « Ne me propose plus cette carte pour ce deck. » Idempotent. */
+  ignore: (id: number, oracle_id: string, reason?: string) =>
+    apiFetch<{ status: string }>(`/decks/${id}/ignored`, {
+      method: "POST",
+      body: { oracle_id, reason },
+    }),
+  unignore: (id: number, oracleId: string) =>
+    apiFetch<void>(`/decks/${id}/ignored/${oracleId}`, { method: "DELETE" }),
 }
 
 export const cardsApi = {

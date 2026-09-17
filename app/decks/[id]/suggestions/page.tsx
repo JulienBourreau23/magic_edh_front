@@ -9,6 +9,7 @@ import { ManabaseAdvice } from "@/components/ManabaseAdvice"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
 import { decksApi, displayName, type Suggestions } from "@/lib/api"
+import { wishlistApi } from "@/lib/api"
 
 const BRACKET_CHOICES = [1, 2, 3, 4, 5]
 
@@ -20,6 +21,11 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
   const [targetBracket, setTargetBracket] = useState<number | undefined>(undefined)
   const [data, setData] = useState<Suggestions | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  // Incrémenté après chaque refus : ici le rechargement n'est pas un luxe,
+  // c'est le but. Écarter une carte doit laisser une autre prendre sa place,
+  // et seule une nouvelle passe du moteur peut la désigner.
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     decksApi
@@ -29,7 +35,20 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
         setError(null)
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-  }, [deckId, maxPrice, targetBracket])
+  }, [deckId, maxPrice, targetBracket, reload])
+
+  async function run(key: string, action: () => Promise<unknown>, refresh = true) {
+    setBusy(key)
+    try {
+      await action()
+      setError(null)
+      if (refresh) setReload((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inattendue")
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,7 +136,65 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
                     <span className="font-medium">
                       {cut.card ? displayName(cut.card) : "Aucune carte à retirer"}
                     </span>
-                    <span className="text-muted-foreground">{cut.reason}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{cut.reason}</span>
+                      {cut.card && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          disabled={busy === `i:${cut.card.oracle_id}`}
+                          onClick={() =>
+                            run(`i:${cut.card!.oracle_id}`, () =>
+                              decksApi.ignore(deckId, cut.card!.oracle_id, "je la garde")
+                            )
+                          }
+                          aria-label={`Garder ${displayName(cut.card)} malgré le conseil`}
+                        >
+                          je la garde
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {data.ignored.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Ignorées pour ce deck ({data.ignored.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  Ces cartes ne sont plus proposées, ni à l&apos;ajout ni au retrait, pour ce deck
+                  seulement. Le refus n&apos;a rien retiré du deck : il ne parle que du conseil.
+                </p>
+                {data.ignored.map((card) => (
+                  <div key={card.oracle_id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{displayName(card)}</span>
+                    <span className="flex items-center gap-2">
+                      {card.reason && (
+                        <span className="text-xs text-muted-foreground">{card.reason}</span>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        disabled={busy === `u:${card.oracle_id}`}
+                        onClick={() =>
+                          run(`u:${card.oracle_id}`, () =>
+                            decksApi.unignore(deckId, card.oracle_id)
+                          )
+                        }
+                        aria-label={`Reproposer ${displayName(card)} pour ce deck`}
+                      >
+                        reproposer
+                      </Button>
+                    </span>
                   </div>
                 ))}
               </CardContent>
@@ -139,11 +216,49 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
                 </div>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
                   {group.candidates.map((candidate) => (
-                    <CardTile
-                      key={candidate.scryfall_id}
-                      card={candidate}
-                      caption={`${displayName(candidate)} — ${candidate.price_eur?.toFixed(2)} €`}
-                    />
+                    <div key={candidate.scryfall_id} className="flex flex-col gap-1">
+                      <CardTile
+                        card={candidate}
+                        caption={`${displayName(candidate)} — ${candidate.price_eur?.toFixed(2)} €`}
+                      />
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 flex-1 px-1 text-xs"
+                          disabled={busy === `w:${candidate.oracle_id}`}
+                          onClick={() =>
+                            run(
+                              `w:${candidate.oracle_id}`,
+                              () =>
+                                wishlistApi.add(
+                                  candidate.scryfall_id,
+                                  1,
+                                  `Conseillée pour ${group.label.toLowerCase()}`
+                                ),
+                              false
+                            )
+                          }
+                          aria-label={`Ajouter ${displayName(candidate)} à la liste de recherche`}
+                        >
+                          + recherche
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 flex-1 px-1 text-xs"
+                          disabled={busy === `i:${candidate.oracle_id}`}
+                          onClick={() =>
+                            run(`i:${candidate.oracle_id}`, () =>
+                              decksApi.ignore(deckId, candidate.oracle_id, group.label)
+                            )
+                          }
+                          aria-label={`Ne plus proposer ${displayName(candidate)} pour ce deck`}
+                        >
+                          ignorer
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>

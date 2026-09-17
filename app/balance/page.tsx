@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { balanceApi, decksApi, displayName, type BalanceResult, type DeckSummary } from "@/lib/api"
+import { balanceApi, decksApi, displayName, wishlistApi, type BalanceResult, type DeckSummary } from "@/lib/api"
 import { downloadShoppingListPdf } from "@/lib/shopping-pdf"
 
 const MAX_DECKS = 4
@@ -16,6 +16,10 @@ export default function BalancePage() {
   const [maxPrice, setMaxPrice] = useState(50)
   const [result, setResult] = useState<BalanceResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  // Refuser une carte relance le calcul : une autre doit prendre sa place, et
+  // seul le moteur peut la désigner.
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     decksApi.list().then(setDecks).catch(() => setDecks([]))
@@ -30,7 +34,20 @@ export default function BalancePage() {
         setError(null)
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-  }, [selected, maxPrice])
+  }, [selected, maxPrice, reload])
+
+  async function run(key: string, action: () => Promise<unknown>, refresh = true) {
+    setBusy(key)
+    try {
+      await action()
+      setError(null)
+      if (refresh) setReload((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inattendue")
+    } finally {
+      setBusy(null)
+    }
+  }
 
   // Rien à afficher tant que la réponse ne correspond pas à la sélection courante.
   const report = selected.length > 0 ? result : null
@@ -149,19 +166,63 @@ export default function BalancePage() {
                       {group.label} — {group.reason}
                     </span>
                     {group.candidates.map((candidate) => (
-                      <div key={candidate.scryfall_id} className="flex flex-wrap justify-between gap-2">
+                      <div key={candidate.scryfall_id} className="flex flex-wrap items-center justify-between gap-2">
                         <span>{displayName(candidate)}</span>
-                        {candidate.free_to_use ? (
-                          <Badge variant="secondary">déjà en collection</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            à acheter · {candidate.price_eur?.toFixed(2)} €
-                          </span>
-                        )}
+                        <span className="flex items-center gap-2">
+                          {candidate.free_to_use ? (
+                            <Badge variant="secondary">déjà en collection</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              à acheter · {candidate.price_eur?.toFixed(2)} €
+                            </span>
+                          )}
+                          {!candidate.free_to_use && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs"
+                              disabled={busy === `w:${plan.deck_id}:${candidate.oracle_id}`}
+                              onClick={() =>
+                                run(
+                                  `w:${plan.deck_id}:${candidate.oracle_id}`,
+                                  () =>
+                                    wishlistApi.add(
+                                      candidate.scryfall_id,
+                                      1,
+                                      `Conseillée pour ${plan.name}`
+                                    ),
+                                  false
+                                )
+                              }
+                              aria-label={`Ajouter ${displayName(candidate)} à la liste de recherche`}
+                            >
+                              + recherche
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            disabled={busy === `i:${plan.deck_id}:${candidate.oracle_id}`}
+                            onClick={() =>
+                              run(`i:${plan.deck_id}:${candidate.oracle_id}`, () =>
+                                decksApi.ignore(plan.deck_id, candidate.oracle_id, group.label)
+                              )
+                            }
+                            aria-label={`Ne plus proposer ${displayName(candidate)} pour ${plan.name}`}
+                          >
+                            ignorer
+                          </Button>
+                        </span>
                       </div>
                     ))}
                   </div>
                 ))}
+
+                <p className="text-xs text-muted-foreground">
+                  Les cartes refusées ne sont plus proposées pour ce deck. Pour revenir sur un
+                  refus, voir « Ignorées » dans les suggestions du deck.
+                </p>
 
                 <div className="text-xs text-muted-foreground">
                   {plan.free_picks} carte(s) prise(s) dans la collection · {plan.purchases_cost_eur.toFixed(2)} €
