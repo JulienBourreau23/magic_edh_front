@@ -5,17 +5,25 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { CardTile } from "@/components/CardTile"
 import {
   displayName,
   mustHaveApi,
   type DeckFormat,
   type MustHave,
+  type MustHaveCard,
   type MustHaveGroup,
 } from "@/lib/api"
+
+type View = "visuels" | "liste"
 
 export default function MustHavePage() {
   const [format, setFormat] = useState<DeckFormat>("commander")
   const [maxPrice, setMaxPrice] = useState(50)
+  // Les visuels par défaut : sur une liste d'achats, beaucoup de ces cartes
+  // sont inconnues, et une illustration les fait reconnaître plus vite qu'un
+  // nom. Le tableau reste à un clic pour comparer des prix.
+  const [view, setView] = useState<View>("visuels")
   const [data, setData] = useState<MustHave | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,6 +77,20 @@ export default function MustHavePage() {
             onChange={(e) => setMaxPrice(Math.max(1, Number(e.target.value) || 1))}
           />
         </label>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Affichage</span>
+          {(["visuels", "liste"] as const).map((value) => (
+            <Button
+              key={value}
+              size="sm"
+              variant={view === value ? "default" : "outline"}
+              onClick={() => setView(value)}
+            >
+              {value === "visuels" ? "Visuels" : "Liste"}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {format === "duel" && (
@@ -81,13 +103,33 @@ export default function MustHavePage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {data?.groups.map((group) => (
-        <TypeTable key={group.key} group={group} maxPrice={data.max_price_eur} />
+        <TypeSection key={group.key} group={group} maxPrice={data.max_price_eur} view={view} />
       ))}
     </div>
   )
 }
 
-function TypeTable({ group, maxPrice }: { group: MustHaveGroup; maxPrice: number }) {
+/** Prix à payer, ou la mention qu'il n'y a rien à payer. */
+function Price({ card }: { card: MustHaveCard }) {
+  if (card.owned > 0) {
+    return (
+      <Badge variant="secondary">
+        en collection{card.owned > 1 ? ` ×${card.owned}` : ""}
+      </Badge>
+    )
+  }
+  return <span className="tabular-nums">{Number(card.price_eur).toFixed(2)} €</span>
+}
+
+function TypeSection({
+  group,
+  maxPrice,
+  view,
+}: {
+  group: MustHaveGroup
+  maxPrice: number
+  view: View
+}) {
   if (group.cards.length === 0) return null
 
   return (
@@ -101,6 +143,26 @@ function TypeTable({ group, maxPrice }: { group: MustHaveGroup; maxPrice: number
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {view === "visuels" ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+            {group.cards.map((card) => (
+              // Les cartes déjà possédées sont estompées plutôt que retirées :
+              // leur place dans le classement reste une information.
+              <div
+                key={card.oracle_id}
+                className={`flex flex-col gap-1 ${card.owned > 0 ? "opacity-60" : ""}`}
+              >
+                <CardTile card={card} caption={displayName(card)} />
+                <div className="flex items-baseline justify-between gap-1 text-xs">
+                  <span className="tabular-nums text-muted-foreground">
+                    n°{card.edhrec_rank}
+                  </span>
+                  <Price card={card} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs text-muted-foreground">
@@ -123,19 +185,14 @@ function TypeTable({ group, maxPrice }: { group: MustHaveGroup; maxPrice: number
                   </span>
                 </td>
                 <td className="py-1.5 font-mono text-xs">{card.mana_cost}</td>
-                <td className="py-1.5 text-right tabular-nums">
-                  {card.owned > 0 ? (
-                    <Badge variant="secondary">
-                      en collection{card.owned > 1 ? ` ×${card.owned}` : ""}
-                    </Badge>
-                  ) : (
-                    `${Number(card.price_eur).toFixed(2)} €`
-                  )}
+                <td className="py-1.5 text-right">
+                  <Price card={card} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        )}
 
         {group.over_budget > 0 && (
           <p className="text-xs text-muted-foreground">
