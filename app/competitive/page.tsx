@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CardTile } from "@/components/CardTile"
+import { CombosAndSynergies } from "@/components/CombosAndSynergies"
 import { CompetitiveDeck } from "@/components/CompetitiveDeck"
 import {
   competitiveApi,
@@ -233,7 +234,15 @@ export default function CompetitivePage() {
 
       {build && (
         <Step n={4} title={`Le deck — ${build.theme.label}`}>
-          <CompetitiveDeck build={build} />
+          <div className="flex flex-col gap-4">
+            <CompetitiveDeck build={build} />
+            <CombosAndSynergies
+              combos={build.combos}
+              synergies={build.synergies}
+              subject={displayName(build.commander)}
+              themeLabel={build.theme.label}
+            />
+          </div>
         </Step>
       )}
     </div>

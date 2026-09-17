@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CardTile } from "@/components/CardTile"
+import { CombosAndSynergies } from "@/components/CombosAndSynergies"
 import {
   deckIdeasApi,
   displayName,
@@ -238,6 +239,12 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
               })}
             </CardContent>
           </Card>
+
+          <CombosAndSynergies
+            combos={data.combos}
+            synergies={data.synergies}
+            subject={displayName(data.commander)}
+          />
 
           <p className="text-xs text-muted-foreground">
             Le remplaçant est choisi <strong>du même rôle</strong> quand c&apos;en existe un —

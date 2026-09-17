@@ -575,6 +575,9 @@ export interface DeckIdeaCoreCard extends DeckIdeaCard {
 }
 
 export interface DeckIdeaDetail {
+  combos: TwoCardCombo[]
+  /** Mesurée contre tous les decks du commandant : cette liste n'a pas de thème. */
+  synergies: DeckSynergy[]
   commander: DeckIdea["commander"]
   format: string
   max_price_eur: number
@@ -800,6 +803,9 @@ export interface CompetitiveCard {
 }
 
 export interface CompetitiveBuild {
+  combos: TwoCardCombo[]
+  /** Mesurée contre les decks de l'archétype choisi, pas contre tous ceux du commandant. */
+  synergies: DeckSynergy[]
   commander: CompetitiveCard
   theme: { slug: string; label: string; deck_count: number }
   format: CompetitiveFormat
