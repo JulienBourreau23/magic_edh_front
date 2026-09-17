@@ -9,6 +9,7 @@ import { CardTile } from "@/components/CardTile"
 import {
   deckIdeasApi,
   displayName,
+  wishlistApi,
   ROLE_LABELS,
   type DeckIdeaCard,
   type DeckIdeaCoreCard,
@@ -33,6 +34,10 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
   const [data, setData] = useState<DeckIdeaDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
+  // Cartes envoyées en liste de recherche pendant la session : le serveur ne
+  // sera pas réinterrogé, donc c'est ici qu'on retient le geste.
+  const [wanted, setWanted] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState<string | null>(null)
 
   useEffect(() => {
     deckIdeasApi
@@ -80,6 +85,24 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
       next[index] = { ...slot, replacement: pick }
       return next
     })
+  }
+
+  async function addToWishlist(card: DeckIdeaCard) {
+    setBusy(card.oracle_id)
+    try {
+      await wishlistApi.add(card.scryfall_id, 1, `Conseillée pour ${data?.commander.name ?? ""}`)
+      setWanted((current) => new Set(current).add(card.oracle_id))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inattendue")
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** Déjà cherchée : à l'arrivée d'après le serveur, ou ajoutée à l'instant. */
+  function isWanted(card: DeckIdeaCard): boolean {
+    return card.wanted_quantity > 0 || wanted.has(card.oracle_id)
   }
 
   function restore(index: number) {
@@ -182,16 +205,32 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     ) : (
                       !slot.proposed.owned && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 px-1 text-xs"
-                          disabled={bestSubstitute(slot.proposed) === null}
-                          onClick={() => replace(index)}
-                          aria-label={`Remplacer ${displayName(slot.proposed)} par une carte possédée`}
-                        >
-                          remplacer
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-1 text-xs"
+                            disabled={bestSubstitute(slot.proposed) === null}
+                            onClick={() => replace(index)}
+                            aria-label={`Remplacer ${displayName(slot.proposed)} par une carte possédée`}
+                          >
+                            remplacer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1 text-xs"
+                            disabled={isWanted(slot.proposed) || busy === slot.proposed.oracle_id}
+                            onClick={() => addToWishlist(slot.proposed)}
+                            aria-label={
+                              isWanted(slot.proposed)
+                                ? `${displayName(slot.proposed)} est déjà dans la liste de recherche`
+                                : `Ajouter ${displayName(slot.proposed)} à la liste de recherche`
+                            }
+                          >
+                            {isWanted(slot.proposed) ? "déjà cherchée" : "+ recherche"}
+                          </Button>
+                        </div>
                       )
                     )}
                   </div>

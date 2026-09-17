@@ -159,6 +159,35 @@ export interface TwoCardCombo {
   total_mana_value: number
   bracket_tag: string | null
   popularity: number | null
+  /**
+   * Les étapes d'exécution, une par ligne. « Infinite damage » ne dit pas quelle
+   * carte lancer en premier : sans elles, la fiche annonce un combo que le
+   * joueur ne sait pas jouer.
+   */
+  description: string | null
+  /** Ce qu'il faut avoir en place avant de lancer. */
+  prerequisites: string | null
+}
+
+/**
+ * Une carte du deck qu'EDHREC voit particulièrement associée au commandant.
+ *
+ * La synergie n'est pas la popularité : c'est l'écart entre « jouée avec ce
+ * commandant » et « jouée dans cette couleur en général ». Sol Ring est
+ * partout, donc synergique avec personne.
+ */
+export interface DeckSynergy {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  type_line: string | null
+  mana_cost: string | null
+  image_uri: string | null
+  image_downloaded: boolean
+  synergy: number
+  inclusion_rate: number | null
+  section: string | null
 }
 
 /** Carte citée pour expliquer un plancher de bracket. */
@@ -265,6 +294,11 @@ export interface DeckDetail {
   total_price_eur: number
   legality_warnings: LegalityWarning[]
   bracket: BracketEstimate
+  /**
+   * Vide quand le commandant n'a pas de données EDHREC : il n'est pas dans la
+   * collection, ou la synchronisation n'a pas encore tourné.
+   */
+  synergies: DeckSynergy[]
   manabase: Manabase
   role_diagnostics: RoleDiagnostic[]
 }
@@ -338,6 +372,11 @@ export interface MatchupProfile {
   deck_id: number
   name: string
   bracket: BracketEstimate
+  /**
+   * Vide quand le commandant n'a pas de données EDHREC : il n'est pas dans la
+   * collection, ou la synchronisation n'a pas encore tourné.
+   */
+  synergies: DeckSynergy[]
   manabase: Manabase
   role_counts: Record<string, number>
   interaction_count: number
@@ -526,6 +565,8 @@ export interface DeckIdeaCard {
   categories: string[]
   edhrec_rank: number | null
   owned_quantity: number
+  /** Exemplaires déjà dans la liste de recherche : le bouton se désactive. */
+  wanted_quantity: number
 }
 
 /** Une carte du noyau proposé, avec le fait qu'on la possède ou non. */

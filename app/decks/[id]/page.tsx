@@ -55,7 +55,7 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
   if (invalidId || deckMissing) notFound()
   if (!data) return <p className="text-sm text-muted-foreground">Chargement...</p>
 
-  const { deck, cards, import_issues, mana_curve, total_price_eur, legality_warnings, bracket, manabase, role_diagnostics } = data
+  const { deck, cards, import_issues, mana_curve, total_price_eur, legality_warnings, bracket, manabase, role_diagnostics, synergies } = data
   const commander = cards.find((c) => c.is_commander)
   const expensive = cards.filter((c) => (c.price_eur ?? 0) > 50)
 
@@ -156,36 +156,10 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
               </ul>
             )}
             {bracket.two_card_combos.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <p>
-                  {bracket.two_card_combos.length} combo(s) à deux cartes, dont{" "}
-                  {bracket.winning_combo_count} qui gagne(nt) la partie.
-                </p>
-                <ul className="flex flex-col gap-1.5">
-                  {bracket.two_card_combos.map((combo) => (
-                    <li key={combo.variant_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <Badge variant={combo.wins_outright ? "default" : "secondary"}>
-                        {combo.wins_outright ? "Gagne la partie" : "Combo"}
-                      </Badge>
-                      <a
-                        href={combo.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-foreground underline underline-offset-2"
-                      >
-                        {combo.cards.join(" + ")}
-                      </a>
-                      <span className="text-xs">
-                        {combo.total_mana_value} mana au total — {combo.produces.slice(0, 2).join(", ")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-xs">
-                  « Mana au total » = lancer les deux cartes puis exécuter le combo. À comparer au
-                  ramp du deck : le bracket 3 tolère un combo de fin de partie, pas un plan de départ.
-                </p>
-              </div>
+              <p>
+                {bracket.two_card_combos.length} combo(s) à deux cartes, dont{" "}
+                {bracket.winning_combo_count} qui gagne(nt) la partie — détaillés plus bas.
+              </p>
             )}
             {bracket.extra_turns.length > 0 && (
               <div className="flex flex-col gap-1.5">
@@ -256,6 +230,120 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
       </div>
+
+      {bracket.two_card_combos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Combos à deux cartes{" "}
+              <span className="font-normal text-muted-foreground">
+                — {bracket.two_card_combos.length}, dont {bracket.winning_combo_count} qui
+                gagne(nt) la partie
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 text-sm">
+            {bracket.two_card_combos.map((combo) => (
+              <div key={combo.variant_id} className="flex flex-col gap-1.5 border-b pb-3 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <Badge variant={combo.wins_outright ? "default" : "secondary"}>
+                    {combo.wins_outright ? "Gagne la partie" : "Combo"}
+                  </Badge>
+                  <a
+                    href={combo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium underline underline-offset-2"
+                  >
+                    {combo.cards.join(" + ")}
+                  </a>
+                  <span className="text-xs text-muted-foreground">
+                    {combo.total_mana_value} mana au total
+                    {combo.produces.length > 0 && ` — ${combo.produces.slice(0, 3).join(", ")}`}
+                  </span>
+                </div>
+
+                {combo.prerequisites && (
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">Prérequis :</strong> {combo.prerequisites}
+                  </p>
+                )}
+
+                {combo.description && (
+                  <ol className="ml-4 flex list-decimal flex-col gap-0.5 text-xs text-muted-foreground">
+                    {combo.description
+                      .split("\n")
+                      .map((étape) => étape.trim())
+                      .filter(Boolean)
+                      .map((étape, index) => (
+                        <li key={index}>{étape}</li>
+                      ))}
+                  </ol>
+                )}
+              </div>
+            ))}
+
+            <p className="text-xs text-muted-foreground">
+              « Mana au total » = lancer les deux cartes puis exécuter le combo. À comparer au ramp
+              du deck : le bracket 3 tolère un combo de <em>fin de partie</em>, pas un plan de
+              départ. Les étapes viennent de Commander Spellbook — le lien mène à la page du combo
+              pour vérifier à la main.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {synergies.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Synergies avec {commander ? displayName(commander) : "le commandant"}{" "}
+              <span className="font-normal text-muted-foreground">
+                — {synergies.length} carte(s) reconnue(s)
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-1.5 font-medium">Carte</th>
+                  <th className="w-28 py-1.5 text-right font-medium">Synergie</th>
+                  <th className="w-36 py-1.5 text-right font-medium">Jouée dans</th>
+                </tr>
+              </thead>
+              <tbody>
+                {synergies.slice(0, 20).map((card) => (
+                  <tr key={card.oracle_id} className="border-b last:border-0">
+                    <td className="py-1.5">{displayName(card)}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      <span className={card.synergy > 0 ? "text-foreground" : "text-muted-foreground"}>
+                        {card.synergy > 0 ? "+" : ""}
+                        {(card.synergy * 100).toFixed(0)} pts
+                      </span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-muted-foreground">
+                      {card.inclusion_rate != null
+                        ? `${Math.round(card.inclusion_rate * 100)} % des decks`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">La synergie n&apos;est pas la popularité.</strong>{" "}
+              C&apos;est l&apos;écart entre « jouée avec ce commandant » et « jouée dans cette
+              couleur en général » : Sol Ring est dans presque tous les decks, donc synergique avec
+              personne. Une valeur élevée désigne une carte qui est là <em>pour ce
+              commandant-là</em>. Une valeur négative n&apos;est pas une erreur — c&apos;est
+              souvent le signe d&apos;une carte qui n&apos;est pas à sa place ici.
+              {synergies.length > 20 && " Les vingt premières sont affichées."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {expensive.length > 0 && (
         <Card>
