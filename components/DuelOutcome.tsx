@@ -62,20 +62,36 @@ export function DuelOutcome({ duel, nameA, nameB }: { duel: DuelResult; nameA: s
           <p>
             <strong className="text-foreground">Modélisé :</strong> terrains et accélération, coût et
             couleurs du mana (calcul exact), déploiement des créatures avec leur vraie force et
-            endurance, removal ciblé sur la plus grosse menace, board wipes, attaques, blocages,
-            points de vie.
+            endurance, removal ciblé sur la plus grosse menace visable, board wipes, points de vie.
           </p>
           <p>
-            <strong className="text-foreground">Ignoré :</strong> vol et piétinement, capacités
-            activées et déclenchées, jetons, moteurs de pioche, combos, contresorts joués au bon
-            moment, dégâts de commandant.
+            <strong className="text-foreground">Combat joué avec ses règles :</strong> vol et portée
+            (qui peut bloquer quoi), menace, initiative et double initiative (l&apos;ordre des dégâts
+            décide qui meurt), contact mortel, piétinement, lien de vie, indestructible, défenseur,
+            célérité, et vigilance — attaquer engage, donc une créature qui attaque ne bloquera pas
+            au tour suivant.
           </p>
           <p>
-            <strong className="text-foreground">Biais à connaître :</strong> ce n&apos;est pas du
-            bruit, il a une direction. Le modèle <strong className="text-foreground">avantage les
-            decks dont la puissance est dans les corps de créature</strong> et sous-estime ceux qui
-            gagnent par moteurs, combos ou contrôle. Lis ce taux comme une mesure de pression et de
-            rythme, pas comme un pronostic de table.
+            <strong className="text-foreground">Aussi pris en compte :</strong> les dégâts de
+            commandant (21 d&apos;un même commandant font perdre), la menace du linceul qui échappe
+            au removal ciblé, les contresorts gardés en réserve pour une vraie menace, la pioche
+            apportée par un sort, et les combos gagnants à deux cartes — quand les deux pièces sont
+            disponibles et le mana total payable, la partie est gagnée sur place.
+          </p>
+          <p>
+            <strong className="text-foreground">Toujours ignoré :</strong> les capacités activées et
+            déclenchées en général — « quand cette créature meurt, chaque joueur sacrifie un
+            terrain » est du texte libre, et l&apos;exécuter demanderait un moteur de règles complet.
+            Même chose pour les jetons, les moteurs de pioche récurrents, la politique, et les
+            erreurs de jeu.
+          </p>
+          <p>
+            <strong className="text-foreground">Biais résiduel :</strong> il garde une direction,
+            plus faible qu&apos;avant. Le modèle reste{" "}
+            <strong className="text-foreground">plus à l&apos;aise avec les decks qui gagnent par le
+            combat ou par un combo identifié</strong> qu&apos;avec ceux qui gagnent en accumulant de
+            petits avantages tour après tour. Lis ce taux comme une mesure de pression et de rythme,
+            pas comme un pronostic de table.
           </p>
         </div>
       </details>
