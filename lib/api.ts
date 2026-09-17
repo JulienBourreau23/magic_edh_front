@@ -782,8 +782,8 @@ export interface CompetitiveBuild {
 }
 
 export const competitiveApi = {
-  commanders: () =>
-    apiFetch<{ commanders: CompetitiveCommander[] }>("/competitive/commanders"),
+  commanders: (format = "commander") =>
+    apiFetch<{ commanders: CompetitiveCommander[] }>(`/competitive/commanders?format=${format}`),
   themes: (commander: string, format: CompetitiveFormat) =>
     apiFetch<{ themes: CompetitiveTheme[]; error?: string }>(
       `/competitive/themes?commander=${commander}&format=${format}`

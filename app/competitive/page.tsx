@@ -39,6 +39,10 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 export default function CompetitivePage() {
   const [commanders, setCommanders] = useState<CompetitiveCommander[]>([])
   const [commander, setCommander] = useState<CompetitiveCommander | null>(null)
+  // Le format vient en premier parce que **la liste des commandants en
+  // dépend** : Edgar Markov est légal en multi et banni en duel, Rofellos et
+  // Griselbrand l'inverse. Le demander après aurait laissé choisir un
+  // commandant injouable, découvert seulement à la construction.
   const [format, setFormat] = useState<CompetitiveFormat | null>(null)
   const [themes, setThemes] = useState<CompetitiveTheme[]>([])
   const [themesError, setThemesError] = useState<string | null>(null)
@@ -47,11 +51,12 @@ export default function CompetitivePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!format) return
     competitiveApi
-      .commanders()
+      .commanders(format)
       .then((data) => setCommanders(data.commanders))
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-  }, [])
+  }, [format])
 
   const loadThemes = useCallback((oracleId: string, chosenFormat: CompetitiveFormat) => {
     setLoading(true)
@@ -65,17 +70,21 @@ export default function CompetitivePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  function chooseCommander(next: CompetitiveCommander) {
-    setCommander(next)
-    setFormat(null)
+  function chooseFormat(next: CompetitiveFormat) {
+    setFormat(next)
+    // Changer de format peut rendre le commandant choisi illégal : on repart
+    // de zéro plutôt que de garder une sélection devenue fausse.
+    setCommander(null)
+    setCommanders([])
     setThemes([])
     setBuild(null)
   }
 
-  function chooseFormat(next: CompetitiveFormat) {
-    setFormat(next)
+  function chooseCommander(next: CompetitiveCommander) {
+    setCommander(next)
+    setThemes([])
     setBuild(null)
-    if (commander) loadThemes(commander.oracle_id, next)
+    if (format) loadThemes(next.oracle_id, format)
   }
 
   function chooseTheme(theme: CompetitiveTheme) {
@@ -104,75 +113,82 @@ export default function CompetitivePage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <Step n={1} title="Le commandant — classé par ce que ta collection permet d'en tirer">
-        {commanders.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun commandant en collection. Importe un deck monté ou ajoute-le à la main.
-          </p>
-        ) : (
-          <>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Classé par ce que tu peux monter <em>maintenant</em>, pas par puissance brute : un
-              commandant très fort dont tu ne possèdes aucune pièce n&apos;aide pas ce soir. Le{" "}
-              <strong>poids</strong> est la somme des taux d&apos;inclusion de tes 63 meilleures
-              cartes pour cet archétype — une pièce maîtresse jouée dans 80 % des decks y compte
-              seize fois plus qu&apos;une carte de niche jouée dans 5 %. C&apos;est lui qui trie. Le
-              pourcentage dit à quel point tu approches l&apos;optimum de cet archétype-là.
-            </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {commanders.map((entry) => (
-                <button
-                  key={entry.oracle_id}
-                  type="button"
-                  onClick={() => chooseCommander(entry)}
-                  className={`rounded-lg p-1 text-left transition ${
-                    commander?.oracle_id === entry.oracle_id
-                      ? "ring-2 ring-primary"
-                      : "hover:bg-muted"
-                  }`}
-                  aria-pressed={commander?.oracle_id === entry.oracle_id}
-                >
-                  <CardTile card={entry} caption={displayName(entry)} />
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    {entry.best_theme ? (
-                      <>
-                        {entry.best_theme.label} ·{" "}
-                        <span className="tabular-nums">{entry.best_theme.cards_usable}</span>{" "}
-                        cartes · poids{" "}
-                        <span className="tabular-nums">
-                          {entry.best_theme.consensus.toFixed(1)}
-                        </span>{" "}
-                        ·{" "}
-                        <span className="tabular-nums">
-                          {Math.round(entry.best_theme.score * 100)}%
-                        </span>{" "}
-                        de l&apos;optimum
-                      </>
-                    ) : (
-                      "archétypes inconnus — lance la synchro EDHREC"
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+      <Step n={1} title="Le format, donc la banlist — et la liste des commandants">
+        <div className="flex flex-wrap gap-2">
+          {FORMATS.map((entry) => (
+            <Button
+              key={entry.value}
+              variant={format === entry.value ? "default" : "outline"}
+              onClick={() => chooseFormat(entry.value)}
+            >
+              {entry.label}
+              <span className="ml-2 text-xs opacity-70">{entry.hint}</span>
+            </Button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Ce choix vient en premier parce que la liste des commandants en dépend, et{" "}
+          <strong>dans les deux sens</strong> : le Duel Commander interdit des commandants que le
+          multi autorise, mais en autorise aussi que le multi bannit. Les cartes interdites
+          seulement comme commandant sont traitées comme bannies tout court — plus strict que la
+          règle réelle, jamais plus laxiste.
+        </p>
       </Step>
 
-      {commander && (
-        <Step n={2} title="Le format, donc la banlist">
-          <div className="flex flex-wrap gap-2">
-            {FORMATS.map((entry) => (
-              <Button
-                key={entry.value}
-                variant={format === entry.value ? "default" : "outline"}
-                onClick={() => chooseFormat(entry.value)}
-              >
-                {entry.label}
-                <span className="ml-2 text-xs opacity-70">{entry.hint}</span>
-              </Button>
-            ))}
-          </div>
+      {format && (
+        <Step n={2} title="Le commandant — classé par ce que ta collection permet d'en tirer">
+          {commanders.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aucun commandant en collection. Importe un deck monté ou ajoute-le à la main.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Classé par ce que tu peux monter <em>maintenant</em>, pas par puissance brute : un
+                commandant très fort dont tu ne possèdes aucune pièce n&apos;aide pas ce soir. Le{" "}
+                <strong>poids</strong> est la somme des taux d&apos;inclusion de tes 63 meilleures
+                cartes pour cet archétype — une pièce maîtresse jouée dans 80 % des decks y compte
+                seize fois plus qu&apos;une carte de niche jouée dans 5 %. C&apos;est lui qui trie. Le
+                pourcentage dit à quel point tu approches l&apos;optimum de cet archétype-là.
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                {commanders.map((entry) => (
+                  <button
+                    key={entry.oracle_id}
+                    type="button"
+                    onClick={() => chooseCommander(entry)}
+                    className={`rounded-lg p-1 text-left transition ${
+                      commander?.oracle_id === entry.oracle_id
+                        ? "ring-2 ring-primary"
+                        : "hover:bg-muted"
+                    }`}
+                    aria-pressed={commander?.oracle_id === entry.oracle_id}
+                  >
+                    <CardTile card={entry} caption={displayName(entry)} />
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {entry.best_theme ? (
+                        <>
+                          {entry.best_theme.label} ·{" "}
+                          <span className="tabular-nums">{entry.best_theme.cards_usable}</span>{" "}
+                          cartes · poids{" "}
+                          <span className="tabular-nums">
+                            {entry.best_theme.consensus.toFixed(1)}
+                          </span>{" "}
+                          ·{" "}
+                          <span className="tabular-nums">
+                            {Math.round(entry.best_theme.score * 100)}%
+                          </span>{" "}
+                          de l&apos;optimum
+                        </>
+                      ) : (
+                        "archétypes inconnus — lance la synchro EDHREC"
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </Step>
       )}
 
