@@ -728,6 +728,14 @@ export interface DeckPlansResult {
   owned_only: boolean
   /** Les decks déjà enregistrés gardent leurs cartes : elles ne resservent pas ici. */
   reserve_existing_decks: boolean
+  /**
+   * Vrai quand `commanders` montre les candidats évalués **sur ce qu'il reste**
+   * après les commandants déjà choisis, et non montés seuls sur la collection
+   * entière. Les deux lectures ne se comparent pas.
+   */
+  after_selection: boolean
+  /** Places encore à pourvoir dans le groupe de quatre. */
+  remaining_slots: number
   commanders_compared: number
   selection_forced: boolean
   commanders: CommanderComparison[]

@@ -34,7 +34,7 @@ export default function DeckPlansPage() {
   const [ownedOnly, setOwnedOnly] = useState(false)
   // Les decks déjà enregistrés gardent leurs cartes : un exemplaire rangé dans
   // une boîte ne sert pas à en monter un autre.
-  const [reserveExisting, setReserveExisting] = useState(true)
+  const [reserveExisting, setReserveExisting] = useState(false)
   const [answer, setAnswer] = useState<{ query: string; result: DeckPlansResult } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<CreatedDecks | null>(null)
@@ -220,22 +220,72 @@ export default function DeckPlansPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Comparaison par commandant ({data.commanders_compared})
+                {data.after_selection
+                  ? `Candidats pour la place ${data.decks_to_build - data.remaining_slots + 1} — avec ce qu'il reste`
+                  : `Comparaison par commandant (${data.commanders_compared})`}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              {/* La sélection se fait deck après deck : chaque choix consomme la
+                  collection, et le suivant se juge sur ce qui reste. */}
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Ta sélection {forced.length}/{data.decks_to_build}
+                </span>
+                {forced.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">
+                    Clique un commandant pour commencer — sans choix, le meilleur groupe de quatre
+                    est proposé d&apos;office.
+                  </span>
+                ) : (
+                  <ol className="flex flex-wrap items-center gap-1.5">
+                    {forced.map((oracleId, index) => {
+                      const plan = selection?.plans.find((p) => p.commander.oracle_id === oracleId)
+                      return (
+                        <li key={oracleId}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 gap-1 text-xs"
+                            onClick={() => toggleCommander(oracleId)}
+                            aria-label={`Retirer ${plan ? displayName(plan.commander) : "ce commandant"} de la sélection`}
+                          >
+                            <span className="tabular-nums text-muted-foreground">{index + 1}.</span>
+                            {plan ? displayName(plan.commander) : "…"}
+                            <span aria-hidden>×</span>
+                          </Button>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                )}
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                Chaque ligne est le deck monté <em>seul</em>, collection entière disponible : c&apos;est
-                le seul point de vue où les commandants sont comparables. Dans un groupe, ce que
-                coûte l&apos;un dépend des trois autres. Clique pour imposer un commandant
-                (4 maximum).
+                {data.after_selection ? (
+                  <>
+                    Chaque ligne est le deck que ce commandant pourrait encore monter{" "}
+                    <strong>avec ce que les decks déjà choisis n&apos;ont pas pris</strong> — pas
+                    avec la collection entière. Un commandant qui paraissait parfait peut
+                    s&apos;effondrer ici, et un autre remonter parce que ses cartes
+                    n&apos;intéressaient personne. Les cartes prises sont remplacées quand un
+                    équivalent du même rôle reste disponible ; sinon le créneau reste vide.
+                  </>
+                ) : (
+                  <>
+                    Chaque ligne est le deck monté <em>seul</em>, collection entière disponible :
+                    c&apos;est le seul point de vue où les commandants sont comparables. Dans un
+                    groupe, ce que coûte l&apos;un dépend des trois autres.
+                  </>
+                )}
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[40rem] text-sm">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="py-2 font-medium">Commandant</th>
-                      <th className="py-2 font-medium">Noyau déjà possédé</th>
+                      <th className="py-2 font-medium">Noyau rempli</th>
+                      <th className="py-2 font-medium">Cartes possédées</th>
                       <th className="py-2 text-right font-medium">À acheter</th>
                       <th className="py-2 text-right font-medium">Coût</th>
                       <th className="py-2 text-right font-medium">Rôles</th>
@@ -357,10 +407,19 @@ export default function DeckPlansPage() {
                 </p>
               )}
 
-              {data.incomplete && (
+              {/* Une sélection incomplète n'est pas un manque de commandants :
+                  c'est une sélection en cours, et le dire autrement inquiéterait
+                  pour rien. */}
+              {data.incomplete && !data.selection_forced && (
                 <p className="text-sm text-amber-600 dark:text-amber-500">
                   Moins de {data.decks_to_build} commandants exploitables : seuls{" "}
                   {selection.plans.length} deck(s) ont pu être montés.
+                </p>
+              )}
+              {data.incomplete && data.selection_forced && data.remaining_slots > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Il reste {data.remaining_slots} place(s) à pourvoir — choisis le commandant
+                  suivant dans le tableau ci-dessus, il est classé sur ce qu&apos;il reste.
                 </p>
               )}
 
@@ -487,8 +546,12 @@ function CommanderRow({
   retained: boolean
   onToggle: () => void
 }) {
+  // « Trop de manques » n'est pas un seuil inventé : c'est l'écart aux repères
+  // de rôle du projet. Un deck qui ne les tient plus reste cliquable — c'est un
+  // avertissement, pas une interdiction.
+  const short = plan.role_gap > 0
   return (
-    <tr className={`border-b last:border-0 ${retained ? "" : "text-muted-foreground"}`}>
+    <tr className={`border-b last:border-0 ${retained && !short ? "" : "text-muted-foreground"}`}>
       <td className="py-1.5 pr-4">
         <button type="button" onClick={onToggle} className="text-left hover:underline">
           <span className={retained ? "font-medium text-foreground" : ""}>
@@ -498,6 +561,7 @@ function CommanderRow({
         <span className="ml-2 inline-flex gap-1 align-middle">
           {selected && <Badge variant="secondary">imposé</Badge>}
           {retained && !selected && <Badge variant="outline">retenu</Badge>}
+          {short && <Badge variant="outline">trop de manques</Badge>}
           {plan.commander.existing_deck_id && (
             <Link
               href={`/decks/${plan.commander.existing_deck_id}`}
@@ -506,6 +570,14 @@ function CommanderRow({
               deck existant
             </Link>
           )}
+        </span>
+      </td>
+      {/* Le noyau rempli et les cartes possédées se confondent sans achat, mais
+          pas avec : la première colonne dit si le deck existe, la seconde ce
+          qu'il ne faut pas payer. */}
+      <td className="py-1.5 pr-4 tabular-nums">
+        <span className={plan.core_size < coreSize ? "text-amber-600 dark:text-amber-500" : ""}>
+          {plan.core_size}/{coreSize}
         </span>
       </td>
       <td className="py-1.5 pr-4">
