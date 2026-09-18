@@ -726,6 +726,8 @@ export interface DeckPlansResult {
   max_price_eur: number
   /** Mode « sans achat » : rien n'entre dans les decks qui ne soit déjà possédé. */
   owned_only: boolean
+  /** Les decks déjà enregistrés gardent leurs cartes : elles ne resservent pas ici. */
+  reserve_existing_decks: boolean
   commanders_compared: number
   selection_forced: boolean
   commanders: CommanderComparison[]
@@ -743,19 +745,32 @@ export interface CreatedDecks {
 
 export const deckPlansApi = {
   /** Sans `commanders`, le back choisit lui-même le meilleur groupe de quatre. */
-  build: (maxPrice = 50, targetBracket?: number, commanders?: string[], ownedOnly = false) =>
+  build: (
+    maxPrice = 50,
+    targetBracket?: number,
+    commanders?: string[],
+    ownedOnly = false,
+    reserveExistingDecks = true
+  ) =>
     apiFetch<DeckPlansResult>(
       `/deck-plans?max_price=${maxPrice}` +
       (targetBracket ? `&target_bracket=${targetBracket}` : "") +
       (commanders?.length ? `&commanders=${commanders.join(",")}` : "") +
-      (ownedOnly ? "&owned_only=true" : "")
+      (ownedOnly ? "&owned_only=true" : "") +
+      (reserveExistingDecks ? "" : "&reserve_existing_decks=false")
     ),
   /**
    * Enregistre les decks proposés. Le back **recalcule** le groupe à partir des
    * commandants : la decklist n'est pas envoyée d'ici, elle serait une seconde
    * vérité à vérifier.
    */
-  create: (commanders: string[], maxPrice = 50, targetBracket?: number, ownedOnly = false) =>
+  create: (
+    commanders: string[],
+    maxPrice = 50,
+    targetBracket?: number,
+    ownedOnly = false,
+    reserveExistingDecks = true
+  ) =>
     apiFetch<CreatedDecks>("/deck-plans/create", {
       method: "POST",
       body: {
@@ -763,6 +778,7 @@ export const deckPlansApi = {
         max_price: maxPrice,
         target_bracket: targetBracket ?? null,
         owned_only: ownedOnly,
+        reserve_existing_decks: reserveExistingDecks,
       },
     }),
 }

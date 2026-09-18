@@ -32,6 +32,9 @@ export default function DeckPlansPage() {
   const [forced, setForced] = useState<string[]>([])
   // « Sans achat » : quatre decks montables ce soir avec la collection seule.
   const [ownedOnly, setOwnedOnly] = useState(false)
+  // Les decks déjà enregistrés gardent leurs cartes : un exemplaire rangé dans
+  // une boîte ne sert pas à en monter un autre.
+  const [reserveExisting, setReserveExisting] = useState(true)
   const [answer, setAnswer] = useState<{ query: string; result: DeckPlansResult } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<CreatedDecks | null>(null)
@@ -40,14 +43,15 @@ export default function DeckPlansPage() {
   // Le résultat affiché est dérivé des réglages courants : tant que la réponse
   // ne correspond pas à la question posée, on ne la montre pas. Pas de drapeau
   // « chargement » en état, qui imposerait un setState synchrone dans l'effet.
-  const query = `${maxPrice}|${targetBracket ?? ""}|${forced.join(",")}|${ownedOnly}`
+  const query = `${maxPrice}|${targetBracket ?? ""}|${forced.join(",")}|${ownedOnly}|${reserveExisting}`
 
   useEffect(() => {
     deckPlansApi
-      .build(maxPrice, targetBracket, forced, ownedOnly)
+      .build(maxPrice, targetBracket, forced, ownedOnly, reserveExisting)
       .then((result) => {
         setAnswer({
-          query: `${maxPrice}|${targetBracket ?? ""}|${forced.join(",")}|${ownedOnly}`,
+          query:
+            `${maxPrice}|${targetBracket ?? ""}|${forced.join(",")}|${ownedOnly}|${reserveExisting}`,
           result,
         })
         // Le plan a changé : le compte rendu de création ne parle plus de lui,
@@ -56,7 +60,7 @@ export default function DeckPlansPage() {
         setError(null)
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-  }, [maxPrice, targetBracket, forced, ownedOnly])
+  }, [maxPrice, targetBracket, forced, ownedOnly, reserveExisting])
 
   const data = answer?.query === query ? answer.result : null
   const loading = data === null && error === null
@@ -86,7 +90,8 @@ export default function DeckPlansPage() {
         selection.plans.map((plan) => plan.commander.oracle_id),
         maxPrice,
         targetBracket,
-        ownedOnly
+        ownedOnly,
+        reserveExisting
       )
       setCreated(response)
       setError(null)
@@ -106,8 +111,16 @@ export default function DeckPlansPage() {
           lui, croisé avec ta collection. Les quatre retenus sont d&apos;abord ceux qui tiennent les
           repères de construction, ensuite ceux dont les manques coûtent le moins cher.{" "}
           <strong>Un exemplaire ne peut être que dans un deck à la fois</strong> : quatre decks qui
-          réclament la même carte obligent à en racheter trois.
+          réclament la même carte obligent à en racheter trois — et, par défaut, les cartes rangées
+          dans tes decks déjà enregistrés ne comptent pas non plus comme disponibles.
         </p>
+        {reserveExisting && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Rien en base ne dit qu&apos;un deck enregistré est <em>physiquement</em> monté : tous
+            sont donc supposés l&apos;être, et leurs cartes mises de côté. Si tu comptes en démonter
+            un pour en monter d&apos;autres, bascule l&apos;interrupteur.
+          </p>
+        )}
         {ownedOnly && (
           <p className="mt-2 text-sm text-muted-foreground">
             <strong>Sans achat</strong> : seules les cartes que tu possèdes entrent dans les decks,
@@ -135,6 +148,26 @@ export default function DeckPlansPage() {
               onClick={() => setOwnedOnly(true)}
             >
               Sans achat
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted-foreground">Mes decks déjà enregistrés</span>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              variant={reserveExisting ? "secondary" : "outline"}
+              onClick={() => setReserveExisting(true)}
+            >
+              gardent leurs cartes
+            </Button>
+            <Button
+              size="sm"
+              variant={reserveExisting ? "outline" : "secondary"}
+              onClick={() => setReserveExisting(false)}
+            >
+              je peux les démonter
             </Button>
           </div>
         </div>
@@ -247,6 +280,11 @@ export default function DeckPlansPage() {
                   {selection.missing_count} carte(s) à acheter · {selection.total_cost_eur.toFixed(2)} €
                 </Badge>
                 {data.selection_forced && <Badge variant="outline">sélection imposée</Badge>}
+                <Badge variant="outline">
+                  {data.reserve_existing_decks
+                    ? "decks enregistrés réservés"
+                    : "decks enregistrés démontables"}
+                </Badge>
                 <Button
                   className="ml-auto"
                   disabled={creating || created !== null}
