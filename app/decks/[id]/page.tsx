@@ -14,6 +14,7 @@ import { ManabaseAdvice } from "@/components/ManabaseAdvice"
 import { DeckToolbar } from "@/components/DeckToolbar"
 import { ImportIssuesPanel } from "@/components/ImportIssuesPanel"
 import { CombosAndSynergies } from "@/components/CombosAndSynergies"
+import { DeckExport } from "@/components/DeckExport"
 
 const STATUS_STYLES: Record<string, string> = {
   ok: "text-muted-foreground",
@@ -87,6 +88,8 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
           <Link href={`/matchup?a=${deck.id}`}>Comparer à un autre deck</Link>
         </Button>
       </div>
+
+      <DeckExport deck={{ name: deck.name, format: deck.format }} cards={cards} />
 
       <DeckToolbar
         deckId={deck.id}

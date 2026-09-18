@@ -330,6 +330,12 @@ export interface SimulationResponse {
 export interface SuggestionCandidate extends Pick<Card,
   "scryfall_id" | "oracle_id" | "name" | "name_fr" | "price_eur" | "image_uri" | "image_downloaded" | "type_line" | "mana_cost"> {
   edhrec_rank: number | null
+  /**
+   * Exemplaires **déjà** dans la liste de recherche. Les quantités s'y
+   * additionnent : sans ce compte, un second clic en demanderait un second
+   * sans rien dire.
+   */
+  wanted_quantity: number
 }
 
 /** Carte refusée pour ce deck : « ne me la propose plus ». */
@@ -450,6 +456,8 @@ export interface ShoppingItem {
   decks: string[]
   motif: string
   total_eur: number
+  /** Exemplaires déjà dans la liste de recherche — voir `SuggestionCandidate`. */
+  wanted_quantity: number
 }
 
 export interface BalancePlan {
@@ -555,6 +563,8 @@ export interface DeckIdeaCard {
   oracle_id: string
   name: string
   name_fr: string | null
+  /** Sert à ranger la liste par section — à l'écran comme dans l'export PDF. */
+  type_line: string | null
   price_eur: number | null
   image_uri: string | null
   image_downloaded: boolean
@@ -714,6 +724,8 @@ export interface DeckPlansResult {
   land_slots: number
   decks_to_build: number
   max_price_eur: number
+  /** Mode « sans achat » : rien n'entre dans les decks qui ne soit déjà possédé. */
+  owned_only: boolean
   commanders_compared: number
   selection_forced: boolean
   commanders: CommanderComparison[]
@@ -721,14 +733,38 @@ export interface DeckPlansResult {
   incomplete: boolean
 }
 
+/** Ce que la création a écrit en base — et ce qu'elle a refusé d'écrire. */
+export interface CreatedDecks {
+  created: { deck_id: number; name: string; card_count: number }[]
+  /** Commandants qui avaient déjà un deck : ignorés plutôt que dupliqués. */
+  skipped: { name: string; deck_id: number }[]
+  missing_basics: string[]
+}
+
 export const deckPlansApi = {
   /** Sans `commanders`, le back choisit lui-même le meilleur groupe de quatre. */
-  build: (maxPrice = 50, targetBracket?: number, commanders?: string[]) =>
+  build: (maxPrice = 50, targetBracket?: number, commanders?: string[], ownedOnly = false) =>
     apiFetch<DeckPlansResult>(
       `/deck-plans?max_price=${maxPrice}` +
       (targetBracket ? `&target_bracket=${targetBracket}` : "") +
-      (commanders?.length ? `&commanders=${commanders.join(",")}` : "")
+      (commanders?.length ? `&commanders=${commanders.join(",")}` : "") +
+      (ownedOnly ? "&owned_only=true" : "")
     ),
+  /**
+   * Enregistre les decks proposés. Le back **recalcule** le groupe à partir des
+   * commandants : la decklist n'est pas envoyée d'ici, elle serait une seconde
+   * vérité à vérifier.
+   */
+  create: (commanders: string[], maxPrice = 50, targetBracket?: number, ownedOnly = false) =>
+    apiFetch<CreatedDecks>("/deck-plans/create", {
+      method: "POST",
+      body: {
+        commanders,
+        max_price: maxPrice,
+        target_bracket: targetBracket ?? null,
+        owned_only: ownedOnly,
+      },
+    }),
 }
 
 export const balanceApi = {
@@ -797,6 +833,8 @@ export interface CompetitiveCard {
   game_changer: boolean
   edhrec_rank: number | null
   owned: boolean
+  /** Exemplaires déjà dans la liste de recherche — voir `SuggestionCandidate`. */
+  wanted_quantity: number
   /** Part des decks de cet archétype qui jouent la carte. */
   theme_rate: number
   commander_rate: number

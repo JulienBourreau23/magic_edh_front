@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CardTile } from "@/components/CardTile"
 import { CombosAndSynergies } from "@/components/CombosAndSynergies"
+import { DeckExport } from "@/components/DeckExport"
+import { WishlistButton } from "@/components/WishlistButton"
+import { generatedDeckCards } from "@/lib/deck-pdf"
 import {
   deckIdeasApi,
   displayName,
-  wishlistApi,
   ROLE_LABELS,
   type DeckIdeaCard,
   type DeckIdeaCoreCard,
@@ -35,10 +37,6 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
   const [data, setData] = useState<DeckIdeaDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
-  // Cartes envoyées en liste de recherche pendant la session : le serveur ne
-  // sera pas réinterrogé, donc c'est ici qu'on retient le geste.
-  const [wanted, setWanted] = useState<Set<string>>(new Set())
-  const [busy, setBusy] = useState<string | null>(null)
 
   useEffect(() => {
     deckIdeasApi
@@ -88,24 +86,6 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
     })
   }
 
-  async function addToWishlist(card: DeckIdeaCard) {
-    setBusy(card.oracle_id)
-    try {
-      await wishlistApi.add(card.scryfall_id, 1, `Conseillée pour ${data?.commander.name ?? ""}`)
-      setWanted((current) => new Set(current).add(card.oracle_id))
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inattendue")
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  /** Déjà cherchée : à l'arrivée d'après le serveur, ou ajoutée à l'instant. */
-  function isWanted(card: DeckIdeaCard): boolean {
-    return card.wanted_quantity > 0 || wanted.has(card.oracle_id)
-  }
-
   function restore(index: number) {
     setSlots((current) => {
       const next = [...current]
@@ -151,6 +131,30 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
               hint={available.length === 0 ? "Plus aucun remplaçant disponible" : undefined}
             />
           </div>
+
+          {/* Pas de feuille de tournoi ici : cette liste n'a pas de manabase, et
+              l'exporter comme une decklist officielle serait un piège. Ce qui
+              part au PDF est l'état courant de l'écran, remplacements compris. */}
+          <DeckExport
+            deck={{
+              name: `${displayName(data.commander)} — idée de deck`,
+              format: "commander",
+              note: `Brouillon EDHREC : ${slots.length} non-terrains, les ${99 - slots.length} terrains restent à compléter en basiques.`,
+            }}
+            cards={generatedDeckCards({
+              commander: data.commander,
+              cards: slots.map((slot) => slot.replacement ?? slot.proposed),
+            })}
+            modes={["names", "images"]}
+            hint={
+              <>
+                Le PDF reprend la liste <strong>telle qu&apos;elle est à l&apos;écran</strong>,
+                remplacements compris. Pas de feuille de tournoi : il manque les{" "}
+                {99 - slots.length} terrains, et une liste incomplète ne se présente pas à un
+                arbitre.
+              </>
+            }
+          />
 
           {data.existing_deck_id && (
             <p className="text-sm text-muted-foreground">
@@ -217,20 +221,13 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
                           >
                             remplacer
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
+                          <WishlistButton
+                            card={slot.proposed}
+                            wanted={slot.proposed.wanted_quantity}
+                            note={`Conseillée pour ${displayName(data.commander)}`}
                             className="h-6 px-1 text-xs"
-                            disabled={isWanted(slot.proposed) || busy === slot.proposed.oracle_id}
-                            onClick={() => addToWishlist(slot.proposed)}
-                            aria-label={
-                              isWanted(slot.proposed)
-                                ? `${displayName(slot.proposed)} est déjà dans la liste de recherche`
-                                : `Ajouter ${displayName(slot.proposed)} à la liste de recherche`
-                            }
-                          >
-                            {isWanted(slot.proposed) ? "déjà cherchée" : "+ recherche"}
-                          </Button>
+                            onError={setError}
+                          />
                         </div>
                       )
                     )}

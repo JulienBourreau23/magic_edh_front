@@ -9,7 +9,7 @@ import { ManabaseAdvice } from "@/components/ManabaseAdvice"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
 import { decksApi, displayName, type Suggestions } from "@/lib/api"
-import { wishlistApi } from "@/lib/api"
+import { WishlistButton } from "@/components/WishlistButton"
 
 const BRACKET_CHOICES = [1, 2, 3, 4, 5]
 
@@ -222,27 +222,13 @@ export default function SuggestionsPage({ params }: { params: Promise<{ id: stri
                         caption={`${displayName(candidate)} — ${candidate.price_eur?.toFixed(2)} €`}
                       />
                       <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
+                        <WishlistButton
+                          card={candidate}
+                          wanted={candidate.wanted_quantity}
+                          note={`Conseillée pour ${group.label.toLowerCase()}`}
                           className="h-6 flex-1 px-1 text-xs"
-                          disabled={busy === `w:${candidate.oracle_id}`}
-                          onClick={() =>
-                            run(
-                              `w:${candidate.oracle_id}`,
-                              () =>
-                                wishlistApi.add(
-                                  candidate.scryfall_id,
-                                  1,
-                                  `Conseillée pour ${group.label.toLowerCase()}`
-                                ),
-                              false
-                            )
-                          }
-                          aria-label={`Ajouter ${displayName(candidate)} à la liste de recherche`}
-                        >
-                          + recherche
-                        </Button>
+                          onError={setError}
+                        />
                         <Button
                           size="sm"
                           variant="ghost"

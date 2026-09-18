@@ -4,22 +4,11 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CardTile } from "@/components/CardTile"
-import { displayName, type CompetitiveBuild, type CompetitiveCard } from "@/lib/api"
-
-const TYPE_LABELS: Record<string, string> = {
-  Creature: "Créatures",
-  Instant: "Éphémères",
-  Sorcery: "Rituels",
-  Artifact: "Artefacts",
-  Enchantment: "Enchantements",
-  Planeswalker: "Planeswalkers",
-  Battle: "Batailles",
-}
-
-function typeOf(card: CompetitiveCard): string {
-  const line = card.type_line ?? ""
-  return Object.keys(TYPE_LABELS).find((type) => line.includes(type)) ?? "Autre"
-}
+import { displayName, type CompetitiveBuild } from "@/lib/api"
+import { groupIntoSections } from "@/lib/decklist"
+import { DeckExport } from "@/components/DeckExport"
+import { WishlistButton } from "@/components/WishlistButton"
+import { generatedDeckCards } from "@/lib/deck-pdf"
 
 /**
  * Courbe obtenue face à la courbe visée. Les deux barres partagent la même
@@ -73,11 +62,15 @@ function Curve({ build }: { build: CompetitiveBuild }) {
 
 export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
   const [showImages, setShowImages] = useState(false)
-  const grouped = new Map<string, CompetitiveCard[]>()
-  for (const card of build.cards) {
-    const type = typeOf(card)
-    grouped.set(type, [...(grouped.get(type) ?? []), card])
-  }
+  const sections = groupIntoSections(build.cards)
+
+  // Le deck compétitif est une decklist complète — commandant, sorts et
+  // manabase — donc les trois exports ont un sens, feuille de tournoi comprise.
+  const pdfCards = generatedDeckCards({
+    commander: build.commander,
+    cards: [...build.cards, ...build.lands.nonbasic],
+    basics: build.lands.basics,
+  })
 
   const upgradeCost = build.upgrades.reduce((sum, item) => sum + item.price_eur, 0)
 
@@ -97,16 +90,32 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
         </Button>
       </div>
 
+      <DeckExport
+        deck={{
+          name: `${displayName(build.commander)} — ${build.theme.label}`,
+          format: build.format,
+        }}
+        cards={pdfCards}
+        hint={
+          <>
+            Le deck n&apos;est pas enregistré : ces PDF sont la seule trace qu&apos;il en reste.
+            Les terrains de base y figurent par leur compte, sans visuel —{" "}
+            <strong>aucune édition n&apos;a été choisie pour eux</strong>, seul leur nombre est
+            calculé.
+          </>
+        }
+      />
+
       <Curve build={build} />
 
       <div className="grid gap-4 md:grid-cols-2">
-        {[...grouped.entries()].map(([type, cards]) => (
-          <div key={type} className="flex flex-col gap-1.5">
+        {sections.map(({ key, label, cards }) => (
+          <div key={key} className="flex flex-col gap-1.5">
             <h3 className="text-sm font-medium">
-              {TYPE_LABELS[type] ?? type}{" "}
+              {label}{" "}
               <span className="text-muted-foreground">
                 {cards.length}
-                {build.type_targets[type] != null && ` / ${build.type_targets[type]} visé(s)`}
+                {build.type_targets[key] != null && ` / ${build.type_targets[key]} visé(s)`}
               </span>
             </h3>
             {showImages ? (
@@ -135,13 +144,31 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
         <h3 className="text-sm font-medium">
           Terrains <span className="text-muted-foreground">{build.lands.total}</span>
         </h3>
-        <p className="text-sm">
-          {build.lands.nonbasic.map((land) => displayName(land)).join(", ")}
-          {build.lands.nonbasic.length > 0 && Object.keys(build.lands.basics).length > 0 && " · "}
-          {Object.entries(build.lands.basics)
-            .map(([name, count]) => `${count} ${name}`)
-            .join(", ")}
-        </p>
+        {showImages && build.lands.nonbasic.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {build.lands.nonbasic.map((land) => (
+              <CardTile key={land.oracle_id} card={land} caption={displayName(land)} />
+            ))}
+          </div>
+        )}
+        {/* En liste comme les autres sections : une énumération à la suite se
+            relit mal, et les terrains de base ont une quantité à lire. Les
+            basiques n'ont pas de visuel ici — ils n'ont pas d'impression
+            choisie, seulement un nom et un compte. */}
+        <ul className="grid gap-x-6 text-sm sm:grid-cols-2">
+          {(!showImages ? build.lands.nonbasic : []).map((land) => (
+            <li key={land.oracle_id} className="flex gap-2">
+              <span className="w-5 shrink-0 tabular-nums text-muted-foreground">1</span>
+              <span>{displayName(land)}</span>
+            </li>
+          ))}
+          {Object.entries(build.lands.basics).map(([name, count]) => (
+            <li key={name} className="flex gap-2">
+              <span className="w-5 shrink-0 tabular-nums text-muted-foreground">{count}</span>
+              <span>{name}</span>
+            </li>
+          ))}
+        </ul>
         <p className="text-xs text-muted-foreground">
           Les terrains de base complètent la manabase au prorata des symboles de mana demandés. Les
           non-basiques qui vaudraient mieux figurent dans les achats ci-dessous : sur un deck de
@@ -167,9 +194,14 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
                 <span className="text-xs text-muted-foreground">
                   → une fois acheté, retire {displayName(item.replace)}
                 </span>
-                <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                <span className="ml-auto flex items-center gap-2 text-xs tabular-nums text-muted-foreground">
                   {Math.round(item.buy.theme_rate * 100)}% contre{" "}
                   {Math.round(item.replace.theme_rate * 100)}%
+                  <WishlistButton
+                    card={item.buy}
+                    wanted={item.buy.wanted_quantity}
+                    note={`Achat utile pour ${displayName(build.commander)} — ${build.theme.label}`}
+                  />
                 </span>
               </li>
             ))}

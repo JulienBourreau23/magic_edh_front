@@ -1,18 +1,43 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { balanceApi, decksApi, displayName, wishlistApi, type BalanceResult, type DeckSummary } from "@/lib/api"
+import { balanceApi, decksApi, displayName, type BalanceResult, type DeckSummary } from "@/lib/api"
+import { WishlistButton } from "@/components/WishlistButton"
 import { downloadShoppingListPdf } from "@/lib/shopping-pdf"
 
 const MAX_DECKS = 4
 
+/**
+ * `useSearchParams` force le rendu client de tout ce qui est sous lui : la
+ * documentation de Next demande une frontière `Suspense`, sans quoi la page
+ * entière sort du prérendu.
+ */
 export default function BalancePage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Chargement…</p>}>
+      <BalanceContent />
+    </Suspense>
+  )
+}
+
+function BalanceContent() {
+  // `?decks=12,13,14,15` : ce que « Créer ces decks » passe depuis /deck-plans,
+  // pour que la suite — les améliorations à faire dans le temps — s'ouvre déjà
+  // sur les bons decks plutôt que sur quatre cases à recocher.
+  const searchParams = useSearchParams()
+  const preselected = (searchParams.get("decks") ?? "")
+    .split(",")
+    .map((value) => Number(value))
+    .filter((id) => Number.isInteger(id) && id > 0)
+    .slice(0, MAX_DECKS)
+
   const [decks, setDecks] = useState<DeckSummary[]>([])
-  const [selected, setSelected] = useState<number[]>([])
+  const [selected, setSelected] = useState<number[]>(preselected)
   const [maxPrice, setMaxPrice] = useState(50)
   const [result, setResult] = useState<BalanceResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -177,27 +202,12 @@ export default function BalancePage() {
                             </span>
                           )}
                           {!candidate.free_to_use && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              disabled={busy === `w:${plan.deck_id}:${candidate.oracle_id}`}
-                              onClick={() =>
-                                run(
-                                  `w:${plan.deck_id}:${candidate.oracle_id}`,
-                                  () =>
-                                    wishlistApi.add(
-                                      candidate.scryfall_id,
-                                      1,
-                                      `Conseillée pour ${plan.name}`
-                                    ),
-                                  false
-                                )
-                              }
-                              aria-label={`Ajouter ${displayName(candidate)} à la liste de recherche`}
-                            >
-                              + recherche
-                            </Button>
+                            <WishlistButton
+                              card={candidate}
+                              wanted={candidate.wanted_quantity}
+                              note={`Conseillée pour ${plan.name}`}
+                              onError={setError}
+                            />
                           )}
                           <Button
                             size="sm"
@@ -258,6 +268,7 @@ export default function BalancePage() {
                     <th className="py-2 font-medium">Carte</th>
                     <th className="py-2 text-right font-medium">Total</th>
                     <th className="py-2 font-medium">Pour</th>
+                    <th className="py-2 font-medium sr-only">Liste de recherche</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,6 +281,14 @@ export default function BalancePage() {
                       </td>
                       <td className="py-1.5 text-right tabular-nums">{item.total_eur.toFixed(2)} €</td>
                       <td className="py-1.5 text-xs text-muted-foreground">{item.decks.join(", ")}</td>
+                      <td className="py-1.5 text-right">
+                        <WishlistButton
+                          card={item}
+                          wanted={item.wanted_quantity}
+                          note={`Manque pour ${item.decks.join(", ")}`}
+                          onError={setError}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

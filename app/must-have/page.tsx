@@ -192,15 +192,23 @@ function AddButtons({
       >
         + collection
       </Button>
+      {/* Une carte déjà cherchée ne se redemande pas : les quantités de la
+          liste de recherche s'additionnent, un second clic en réclamerait un
+          second exemplaire sans rien dire. Le compte vient du serveur, puis de
+          la mise à jour locale — le bouton bascule dès le premier ajout. */}
       <Button
         size="sm"
-        variant="outline"
+        variant={card.wanted > 0 ? "ghost" : "outline"}
         className="h-6 px-2 text-xs"
-        disabled={pending.has(`${card.oracle_id}:wishlist`)}
+        disabled={card.wanted > 0 || pending.has(`${card.oracle_id}:wishlist`)}
         onClick={() => onAdd(card, "wishlist")}
-        aria-label={`Ajouter ${displayName(card)} à la liste de recherche`}
+        aria-label={
+          card.wanted > 0
+            ? `${displayName(card)} est déjà dans la liste de recherche`
+            : `Ajouter ${displayName(card)} à la liste de recherche`
+        }
       >
-        + recherche
+        {card.wanted > 0 ? "déjà cherchée" : "+ recherche"}
       </Button>
     </div>
   )
