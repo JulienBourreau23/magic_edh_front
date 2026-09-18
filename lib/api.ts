@@ -791,6 +791,48 @@ export const deckPlansApi = {
     }),
 }
 
+// --- Performance mesurée ------------------------------------------------------
+
+/** Un archétype mesuré, ou le commandant lui-même quand `theme_slug` est vide. */
+export interface PerformanceRow {
+  theme_slug: string
+  theme_label: string | null
+  /** Part des parties gagnées contre le panel. Les nulles sont au dénominateur. */
+  win_rate: number
+  games: number
+  unfinished_rate: number
+  avg_turns: number | null
+  core_size: number
+  role_gap: number
+  bracket: number | null
+}
+
+export interface PerformanceCommander extends PerformanceRow {
+  commander_oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  image_uri: string | null
+  image_downloaded: boolean
+  color_identity: string[]
+  existing_deck_id: number | null
+  /** Tous ses archétypes mesurés, le meilleur d'abord. Vide si non mesurés. */
+  themes: PerformanceRow[]
+}
+
+export interface PerformanceRanking {
+  commanders: PerformanceCommander[]
+  /** Les decks affrontés : un score ne se compare qu'à panel égal. */
+  panel: string | null
+  computed_at: string | null
+  /** Parties jouées par commandant, panel entier confondu. */
+  games: number | null
+}
+
+export const performanceApi = {
+  ranking: (limit = 10) => apiFetch<PerformanceRanking>(`/performance?limit=${limit}`),
+}
+
 export const balanceApi = {
   /** L'ordre des ids fixe la priorité d'attribution des exemplaires possédés. */
   run: (deckIds: number[], maxPrice = 50, targetBracket?: number) =>

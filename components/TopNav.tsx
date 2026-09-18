@@ -18,6 +18,7 @@ const LINKS = [
   { href: "/must-have", label: "Cartes à avoir" },
   { href: "/balance", label: "Équilibrer" },
   { href: "/matchup", label: "Comparer" },
+  { href: "/performance", label: "Qui gagne" },
 ]
 
 export function TopNav() {
