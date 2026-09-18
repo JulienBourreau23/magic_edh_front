@@ -7,15 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-export default function DecksPage() {
+export default function ArchivesPage() {
   const [decks, setDecks] = useState<DeckSummary[] | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Composant client et non serveur : le jeton vit dans le navigateur, un
-  // rendu serveur n'y aurait pas accès et se ferait renvoyer un 401.
   const load = useCallback(
-    () => decksApi.list().then(setDecks).catch(() => setDecks([])),
+    () => decksApi.list(true).then(setDecks).catch(() => setDecks([])),
     []
   )
 
@@ -23,10 +21,10 @@ export default function DecksPage() {
     load()
   }, [load])
 
-  async function archive(deck: DeckSummary) {
+  async function restore(deck: DeckSummary) {
     setBusy(deck.id)
     try {
-      await decksApi.archive(deck.id, true)
+      await decksApi.archive(deck.id, false)
       await load()
       setError(null)
     } catch (err) {
@@ -39,38 +37,24 @@ export default function DecksPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Mes decks</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="ghost">
-            <Link href="/archives">Archives</Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link href="/build">Construire un deck</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/decks/import">Importer une decklist</Link>
-          </Button>
+        <div>
+          <h1 className="text-2xl font-semibold">Archives</h1>
+          <p className="text-sm text-muted-foreground">
+            Les decks rangés. <strong>Rien n&apos;est supprimé</strong> et la collection ne bouge
+            pas : un deck archivé sort seulement des écrans qui parlent de ce qu&apos;on joue — la
+            liste des decks, l&apos;équilibrage, la comparaison et le panel du classement.
+          </p>
         </div>
+        <Button asChild variant="ghost">
+          <Link href="/decks">Retour aux decks</Link>
+        </Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {decks === null && <p className="text-muted-foreground">Chargement...</p>}
-
       {decks?.length === 0 && (
         <p className="text-muted-foreground">
-          Aucun deck actif.{" "}
-          <Link href="/decks/import" className="underline">
-            Colle une decklist
-          </Link>{" "}
-          ou{" "}
-          <Link href="/build" className="underline">
-            construis-en un carte par carte
-          </Link>
-          . Les decks rangés sont dans les{" "}
-          <Link href="/archives" className="underline">
-            archives
-          </Link>
-          .
+          Aucun deck archivé. Le bouton « Archiver » est sur chaque deck de la liste.
         </p>
       )}
 
@@ -93,17 +77,20 @@ export default function DecksPage() {
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">{deck.card_count} cartes</Badge>
                 <Badge variant="outline">{deck.format}</Badge>
+                {deck.archived_at && (
+                  <Badge variant="outline">
+                    rangé le {new Date(deck.archived_at).toLocaleDateString("fr-FR")}
+                  </Badge>
+                )}
               </div>
-              {/* Archiver ne supprime rien et ne touche pas à la collection :
-                  le deck sort seulement des écrans qui parlent de jeu. */}
               <Button
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 className="mt-auto self-start"
                 disabled={busy === deck.id}
-                onClick={() => archive(deck)}
+                onClick={() => restore(deck)}
               >
-                {busy === deck.id ? "…" : "Archiver"}
+                {busy === deck.id ? "…" : "Remettre en service"}
               </Button>
             </CardContent>
           </Card>

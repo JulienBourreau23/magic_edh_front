@@ -9,6 +9,7 @@ import { clearToken } from "@/lib/auth"
 const LINKS = [
   { href: "/", label: "Vue d'ensemble" },
   { href: "/decks", label: "Mes decks" },
+  { href: "/build", label: "Construire" },
   { href: "/decks/import", label: "Importer une decklist" },
   { href: "/collection", label: "Ma collection" },
   { href: "/deck-ideas", label: "Quel deck monter" },
@@ -19,6 +20,7 @@ const LINKS = [
   { href: "/balance", label: "Équilibrer" },
   { href: "/matchup", label: "Comparer" },
   { href: "/performance", label: "Qui gagne" },
+  { href: "/archives", label: "Archives" },
 ]
 
 export function TopNav() {

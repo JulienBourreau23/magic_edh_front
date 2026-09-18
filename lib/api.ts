@@ -98,6 +98,8 @@ export interface DeckSummary {
   name: string
   format: DeckFormat
   created_at: string
+  /** Non nul quand le deck est rangé : il sort des écrans qui parlent de jeu. */
+  archived_at?: string | null
   commander_name: string | null
   commander_name_fr: string | null
   commander_image_uri: string | null
@@ -500,7 +502,11 @@ export interface ImportDeckResult {
 // --- Endpoints ---
 
 export const decksApi = {
-  list: () => apiFetch<DeckSummary[]>("/decks"),
+  list: (archived = false) =>
+    apiFetch<DeckSummary[]>(`/decks${archived ? "?archived=true" : ""}`),
+  /** Range un deck ou le remet en service. Aucune carte n'est touchée. */
+  archive: (id: number, archived = true) =>
+    apiFetch<DeckSummary>(`/decks/${id}/archive?archived=${archived}`, { method: "POST" }),
   get: (id: number) => apiFetch<DeckDetail>(`/decks/${id}`),
   import: (
     name: string,
@@ -788,6 +794,79 @@ export const deckPlansApi = {
         owned_only: ownedOnly,
         reserve_existing_decks: reserveExistingDecks,
       },
+    }),
+}
+
+// --- Atelier de construction --------------------------------------------------
+
+/** Une carte du vivier : ce que la collection permet de mettre dans ce deck. */
+export interface BuildPoolCard extends Pick<Card,
+  "scryfall_id" | "oracle_id" | "name" | "name_fr" | "mana_cost" | "cmc" | "type_line" |
+  "color_identity" | "price_eur" | "image_uri" | "image_downloaded" | "categories" |
+  "game_changer" | "edhrec_rank"> {
+  owned_quantity: number
+  wanted_quantity: number
+  /** Part des decks de ce commandant qui jouent la carte. Nul si EDHREC l'ignore. */
+  inclusion_rate: number | null
+}
+
+/** Une ligne du brouillon : une carte et son nombre d'exemplaires. */
+export interface DraftEntry {
+  card: Pick<Card, "scryfall_id" | "oracle_id" | "name" | "name_fr" | "type_line" |
+    "image_uri" | "image_downloaded" | "cmc" | "price_eur"> & { categories?: string[] }
+  quantity: number
+}
+
+export interface BuildLands {
+  owned_nonbasic: BuildPoolCard[]
+  basics: Record<string, number>
+  /** Les basiques avec leur impression : le conseil ne les nomme pas, il les pose. */
+  basics_cards: (BuildPoolCard & { quantity: number })[]
+  total: number
+}
+
+export interface BuildEvaluation {
+  counts: { total: number; lands: number; distinct: number }
+  mana_curve: Record<string, number>
+  total_price_eur: number
+  legality_warnings: LegalityWarning[]
+  bracket: BracketEstimate
+  manabase: Manabase
+  role_diagnostics: RoleDiagnostic[]
+  synergies: DeckSynergy[]
+}
+
+type DraftPayload = {
+  format: DeckFormat
+  commander_scryfall_id: string | null
+  cards: { scryfall_id: string; quantity: number }[]
+}
+
+export const buildApi = {
+  /** Le classeur : les commandants possédés, légaux dans ce format. */
+  commanders: (format: DeckFormat) =>
+    apiFetch<{ commanders: Card[] }>(`/build/commanders?format=${format}`),
+  pool: (commanderOracleId: string, format: DeckFormat) =>
+    apiFetch<{ commander: Card; cards: BuildPoolCard[] }>(
+      `/build/pool?commander=${commanderOracleId}&format=${format}`
+    ),
+  lands: (draft: DraftPayload, commanderOracleId: string, slots: number) =>
+    apiFetch<BuildLands>("/build/lands", {
+      method: "POST",
+      body: { ...draft, commander_oracle_id: commanderOracleId, slots },
+    }),
+  evaluate: (draft: DraftPayload) =>
+    apiFetch<BuildEvaluation>("/build/evaluate", { method: "POST", body: draft }),
+  compare: (draft: DraftPayload, deckId: number, name: string) =>
+    apiFetch<Matchup>("/build/compare", {
+      method: "POST",
+      body: { ...draft, deck_id: deckId, name },
+    }),
+  /** Le seul appel qui écrit : sans ce clic, le brouillon n'existe pas côté serveur. */
+  save: (draft: DraftPayload, name: string) =>
+    apiFetch<{ deck_id: number; name: string }>("/build/save", {
+      method: "POST",
+      body: { ...draft, name },
     }),
 }
 
