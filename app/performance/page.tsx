@@ -163,6 +163,12 @@ function CommanderRow({ rang, commander }: { rang: number; commander: Performanc
               {/* Tous les archétypes restent affichés : savoir que l'infect
                   gagne ne dit rien de ce que valent les autres, et c'est
                   justement la question qu'on se pose devant un commandant. */}
+              <p className="text-xs text-muted-foreground">
+                Un archétype sous le taux du commandant n&apos;est pas une erreur : la ligne du
+                haut est le meilleur deck <em>toutes stratégies confondues</em>, bâti sur les
+                quotas de rôle, alors qu&apos;un archétype vise la forme des decks réels qui le
+                jouent. L&apos;écart mesure ce que la stratégie coûte <em>avec ta collection</em>.
+              </p>
               <ul className="flex flex-col gap-0.5 text-sm">
                 {commander.themes.map((theme) => (
                   <ThemeLine key={theme.theme_slug} theme={theme} best={meilleur.win_rate} />
@@ -171,8 +177,9 @@ function CommanderRow({ rang, commander }: { rang: number; commander: Performanc
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Archétypes non mesurés : seuls ceux des meilleurs commandants le sont, le calcul
-              coûtant une minute par poignée d&apos;archétypes.
+              Aucun archétype mesuré : soit ce commandant sort du haut du classement — seuls les
+              vingt premiers le sont, le calcul coûtant une minute par poignée d&apos;archétypes —
+              soit EDHREC n&apos;en publie aucun pour lui.
             </p>
           )}
         </div>
