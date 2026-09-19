@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +11,7 @@ import { CompetitiveDeck } from "@/components/CompetitiveDeck"
 import {
   competitiveApi,
   displayName,
+  type CompetitiveArchetype,
   type CompetitiveBuild,
   type CompetitiveCommander,
   type CompetitiveFormat,
@@ -37,46 +39,142 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   )
 }
 
+/**
+ * `useSearchParams` force le rendu client de ce qui est dessous : Next demande
+ * une frontière `Suspense`, comme sur `/balance` et `/matchup`.
+ */
 export default function CompetitivePage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Chargement...</p>}>
+      <Builder />
+    </Suspense>
+  )
+}
+
+function Builder() {
+  // On arrive ici depuis un article d'archétype (« monter cet archétype »).
+  // Le format voyage avec, sinon l'archétype demandé pourrait n'exister dans
+  // aucun format affiché.
+  const searchParams = useSearchParams()
+  const askedArchetype = searchParams.get("archetype")
+  const askedFormat = searchParams.get("format")
+
   const [commanders, setCommanders] = useState<CompetitiveCommander[]>([])
   const [commander, setCommander] = useState<CompetitiveCommander | null>(null)
   // Le format vient en premier parce que **la liste des commandants en
   // dépend** : Edgar Markov est légal en multi et banni en duel, Rofellos et
   // Griselbrand l'inverse. Le demander après aurait laissé choisir un
   // commandant injouable, découvert seulement à la construction.
-  const [format, setFormat] = useState<CompetitiveFormat | null>(null)
+  // Arriver avec un archétype en poche vaut choix du format : sans lui, la
+  // page attendrait un clic pour une décision déjà prise.
+  const [format, setFormat] = useState<CompetitiveFormat | null>(
+    askedFormat === "duel" || askedFormat === "commander"
+      ? askedFormat
+      : askedArchetype
+        ? "commander"
+        : null
+  )
+  // L'archétype choisi *avant* le commandant — facultatif, et c'est tout son
+  // intérêt : on arrive ici soit avec un commandant en tête, soit avec une
+  // stratégie. Nul tant qu'on n'a rien demandé.
+  const [archetype, setArchetype] = useState<CompetitiveArchetype | null>(null)
+  const [archetypes, setArchetypes] = useState<CompetitiveArchetype[] | null>(null)
+  const [pickingArchetype, setPickingArchetype] = useState(Boolean(askedArchetype))
+  // L'archétype demandé par l'URL, tant qu'on ne l'a pas retrouvé dans le
+  // catalogue de la collection.
+  const [pendingArchetype, setPendingArchetype] = useState<string | null>(askedArchetype)
+  const [unknownArchetype, setUnknownArchetype] = useState<string | null>(null)
   const [themes, setThemes] = useState<CompetitiveTheme[]>([])
   const [themesError, setThemesError] = useState<string | null>(null)
   const [build, setBuild] = useState<CompetitiveBuild | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loadingThemes, setLoadingThemes] = useState(false)
+  const [building, setBuilding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fail = useCallback((err: unknown) => {
+    setError(err instanceof Error ? err.message : "Erreur inattendue")
+  }, [])
+
+  // La grille des commandants dépend du format **et** de l'archétype demandé :
+  // avec un archétype, elle se restreint à ceux qui le jouent et se classe sur
+  // lui. Les deux vont ensemble, d'où un seul effet.
   useEffect(() => {
     if (!format) return
     competitiveApi
-      .commanders(format)
+      .commanders(format, archetype?.slug)
       .then((data) => setCommanders(data.commanders))
-      .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-  }, [format])
+      .catch(fail)
+  }, [format, archetype, fail])
+
+  // Un archétype réclamé par l'URL : on le retrouve dans le catalogue, ou on
+  // le dit. Le laisser tomber en silence afficherait la grille complète comme
+  // si rien n'avait été demandé.
+  useEffect(() => {
+    if (!format || !pendingArchetype) return
+    competitiveApi
+      .archetypes(format)
+      .then((data) => {
+        const found = data.archetypes.find((entry) => entry.slug === pendingArchetype) ?? null
+        setArchetypes(data.archetypes)
+        setArchetype(found)
+        setUnknownArchetype(found ? null : pendingArchetype)
+        setPendingArchetype(null)
+      })
+      .catch(fail)
+  }, [format, pendingArchetype, fail])
 
   const loadThemes = useCallback((oracleId: string, chosenFormat: CompetitiveFormat) => {
-    setLoading(true)
+    setLoadingThemes(true)
     competitiveApi
       .themes(oracleId, chosenFormat)
       .then((data) => {
         setThemes(data.themes)
         setThemesError(data.error ?? null)
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-      .finally(() => setLoading(false))
-  }, [])
+      .catch(fail)
+      .finally(() => setLoadingThemes(false))
+  }, [fail])
+
+  const startBuild = useCallback(
+    (chosen: CompetitiveCommander, themeSlug: string, chosenFormat: CompetitiveFormat) => {
+      setBuilding(true)
+      setBuild(null)
+      competitiveApi
+        .build(chosen.oracle_id, themeSlug, chosenFormat)
+        .then(setBuild)
+        .catch(fail)
+        .finally(() => setBuilding(false))
+    },
+    [fail]
+  )
 
   function chooseFormat(next: CompetitiveFormat) {
     setFormat(next)
     // Changer de format peut rendre le commandant choisi illégal : on repart
-    // de zéro plutôt que de garder une sélection devenue fausse.
+    // de zéro plutôt que de garder une sélection devenue fausse. L'archétype
+    // aussi — la banlist change ce qu'on peut en monter.
     setCommander(null)
     setCommanders([])
+    setArchetype(null)
+    setArchetypes(null)
+    setPickingArchetype(false)
+    setUnknownArchetype(null)
+    setThemes([])
+    setBuild(null)
+  }
+
+  function openArchetypes() {
+    setPickingArchetype(true)
+    if (archetypes || !format) return
+    competitiveApi.archetypes(format).then((data) => setArchetypes(data.archetypes)).catch(fail)
+  }
+
+  function chooseArchetype(next: CompetitiveArchetype | null) {
+    setArchetype(next)
+    setUnknownArchetype(null)
+    // La grille se recharge : le commandant retenu pourrait ne pas jouer ce
+    // qu'on vient de demander.
+    setCommander(null)
     setThemes([])
     setBuild(null)
   }
@@ -85,18 +183,16 @@ export default function CompetitivePage() {
     setCommander(next)
     setThemes([])
     setBuild(null)
-    if (format) loadThemes(next.oracle_id, format)
+    if (!format) return
+    loadThemes(next.oracle_id, format)
+    // L'archétype a déjà été choisi : le redemander ne servirait à rien. La
+    // liste reste affichée dessous pour en changer.
+    if (archetype) startBuild(next, archetype.slug, format)
   }
 
   function chooseTheme(theme: CompetitiveTheme) {
     if (!commander || !format) return
-    setLoading(true)
-    setBuild(null)
-    competitiveApi
-      .build(commander.oracle_id, theme.slug, format)
-      .then(setBuild)
-      .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue"))
-      .finally(() => setLoading(false))
+    startBuild(commander, theme.slug, format)
   }
 
   return (
@@ -137,56 +233,160 @@ export default function CompetitivePage() {
       </Step>
 
       {format && (
-        <Step n={2} title="Le commandant — classé par ce que ta collection permet d'en tirer">
+        <Step n={2} title="La stratégie d'abord — facultatif">
+          {unknownArchetype && (
+            <p className="mb-2 text-sm text-destructive">
+              Aucun de tes commandants ne monte «&nbsp;{unknownArchetype}&nbsp;» : la grille
+              ci-dessous n&apos;est donc pas filtrée. Attention, ça ne veut pas dire que personne
+              ne le joue derrière eux — cette page ne connaît que les{" "}
+              <strong>huit archétypes les plus joués de chaque commandant</strong>, ce
+              qu&apos;EDHREC publie sur leur fiche. La page Archétypes, elle, part du format
+              entier : elle peut lister un commandant que tu possèdes sans que cet archétype
+              figure dans son top&nbsp;8.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {archetype ? (
+              <>
+                <Badge>{archetype.label}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {archetype.commanders} commandant{archetype.commanders > 1 ? "s" : ""} de ta
+                  collection le montent
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => chooseArchetype(null)}>
+                  Retirer ce filtre
+                </Button>
+              </>
+            ) : pickingArchetype ? (
+              <span className="text-xs text-muted-foreground">
+                {archetypes === null
+                  ? "Lecture des archétypes..."
+                  : "Choisis une stratégie, ou passe cette étape."}
+              </span>
+            ) : (
+              <>
+                <Button variant="outline" onClick={openArchetypes}>
+                  Partir d&apos;une stratégie
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  ou passe directement au commandant, ci-dessous.
+                </span>
+              </>
+            )}
+          </div>
+
+          {pickingArchetype && !archetype && archetypes !== null && (
+            <div className="mt-3 flex flex-col gap-2">
+              {archetypes.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Aucun archétype connu : lance la synchronisation EDHREC.
+                </p>
+              )}
+              {archetypes.map((entry) => (
+                <button
+                  key={entry.slug}
+                  type="button"
+                  onClick={() => chooseArchetype(entry)}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border p-2 text-left transition hover:bg-muted"
+                >
+                  <span className="min-w-36 font-medium">{entry.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {entry.commanders} commandant{entry.commanders > 1 ? "s" : ""} · meilleur :{" "}
+                    {entry.best.name_fr ?? entry.best.name} · poids{" "}
+                    <span className="tabular-nums">{entry.best.consensus.toFixed(1)}</span> ·{" "}
+                    <span className="tabular-nums">{Math.round(entry.best.score * 100)}%</span>{" "}
+                    de l&apos;optimum
+                  </span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {entry.deck_count.toLocaleString("fr-FR")} decks recensés
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            Cette étape se saute : sans elle, chaque commandant est jugé sur{" "}
+            <em>son</em> meilleur archétype. Avec elle, la grille ne garde que les commandants qui
+            jouent la stratégie demandée et les classe <strong>sur elle</strong>{" "}— le meilleur de
+            ta collection en général n&apos;est pas forcément le meilleur ici. Les archétypes
+            proposés sont ceux de tes commandants : ce sont les seuls dont on sache ce
+            qu&apos;ils coûteraient. Le nombre de decks recensés est compté chez eux, pas dans le
+            format entier.
+          </p>
+        </Step>
+      )}
+
+      {format && (
+        <Step
+          n={3}
+          title={
+            archetype
+              ? `Le commandant — classé sur ${archetype.label}`
+              : "Le commandant — classé par ce que ta collection permet d'en tirer"
+          }
+        >
           {commanders.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Aucun commandant en collection. Importe un deck monté ou ajoute-le à la main.
+              {archetype
+                ? "Aucun commandant de ta collection ne joue cet archétype."
+                : "Aucun commandant en collection. Importe un deck monté ou ajoute-le à la main."}
             </p>
           ) : (
             <>
               <p className="mb-3 text-xs text-muted-foreground">
                 Classé par ce que tu peux monter <em>maintenant</em>, pas par puissance brute : un
                 commandant très fort dont tu ne possèdes aucune pièce n&apos;aide pas ce soir. Le{" "}
-                <strong>poids</strong> est la somme des taux d&apos;inclusion de tes 63 meilleures
+                <strong>poids</strong>{" "}est la somme des taux d&apos;inclusion de tes 63 meilleures
                 cartes pour cet archétype — une pièce maîtresse jouée dans 80 % des decks y compte
                 seize fois plus qu&apos;une carte de niche jouée dans 5 %. C&apos;est lui qui trie. Le
                 pourcentage dit à quel point tu approches l&apos;optimum de cet archétype-là.
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                {commanders.map((entry) => (
-                  <button
-                    key={entry.oracle_id}
-                    type="button"
-                    onClick={() => chooseCommander(entry)}
-                    className={`rounded-lg p-1 text-left transition ${
-                      commander?.oracle_id === entry.oracle_id
-                        ? "ring-2 ring-primary"
-                        : "hover:bg-muted"
-                    }`}
-                    aria-pressed={commander?.oracle_id === entry.oracle_id}
-                  >
-                    <CardTile card={entry} caption={displayName(entry)} />
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      {entry.best_theme ? (
-                        <>
-                          {entry.best_theme.label} ·{" "}
-                          <span className="tabular-nums">{entry.best_theme.cards_usable}</span>{" "}
-                          cartes · poids{" "}
-                          <span className="tabular-nums">
-                            {entry.best_theme.consensus.toFixed(1)}
-                          </span>{" "}
-                          ·{" "}
-                          <span className="tabular-nums">
-                            {Math.round(entry.best_theme.score * 100)}%
-                          </span>{" "}
-                          de l&apos;optimum
-                        </>
-                      ) : (
-                        "archétypes inconnus — lance la synchro EDHREC"
+                {commanders.map((entry) => {
+                  const shown = entry.selected_theme ?? entry.best_theme
+                  const better =
+                    entry.selected_theme && entry.best_theme &&
+                    entry.best_theme.slug !== entry.selected_theme.slug &&
+                    entry.best_theme.consensus > entry.selected_theme.consensus
+                      ? entry.best_theme
+                      : null
+                  return (
+                    <button
+                      key={entry.oracle_id}
+                      type="button"
+                      onClick={() => chooseCommander(entry)}
+                      className={`rounded-lg p-1 text-left transition ${
+                        commander?.oracle_id === entry.oracle_id
+                          ? "ring-2 ring-primary"
+                          : "hover:bg-muted"
+                      }`}
+                      aria-pressed={commander?.oracle_id === entry.oracle_id}
+                    >
+                      <CardTile card={entry} caption={displayName(entry)} />
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {shown ? (
+                          <>
+                            {shown.label} ·{" "}
+                            <span className="tabular-nums">{shown.cards_usable}</span> cartes ·
+                            poids{" "}
+                            <span className="tabular-nums">{shown.consensus.toFixed(1)}</span> ·{" "}
+                            <span className="tabular-nums">{Math.round(shown.score * 100)}%</span>{" "}
+                            de l&apos;optimum
+                          </>
+                        ) : (
+                          "archétypes inconnus — lance la synchro EDHREC"
+                        )}
+                      </span>
+                      {better && (
+                        <span className="mt-1 block text-xs text-muted-foreground/80">
+                          monte mieux {better.label} (poids{" "}
+                          <span className="tabular-nums">{better.consensus.toFixed(1)}</span>)
+                        </span>
                       )}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             </>
           )}
@@ -194,10 +394,17 @@ export default function CompetitivePage() {
       )}
 
       {commander && format && (
-        <Step n={3} title="La stratégie, classée par ce que couvre ta collection">
+        <Step n={4} title="La stratégie, classée par ce que couvre ta collection">
           {themesError && <p className="text-sm text-destructive">{themesError}</p>}
-          {loading && themes.length === 0 && (
+          {loadingThemes && themes.length === 0 && (
             <p className="text-sm text-muted-foreground">Lecture des archétypes...</p>
+          )}
+          {archetype && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Le deck est déjà construit sur <strong>{archetype.label}</strong>, choisi à
+              l&apos;étape 2. Cette liste dit ce que ce commandant sait faire d&apos;autre — en
+              changer ne demande pas de repartir de zéro.
+            </p>
           )}
           <div className="flex flex-col gap-2">
             {themes.map((theme) => (
@@ -228,12 +435,10 @@ export default function CompetitivePage() {
         </Step>
       )}
 
-      {loading && build === null && themes.length > 0 && (
-        <p className="text-sm text-muted-foreground">Construction du deck...</p>
-      )}
+      {building && <p className="text-sm text-muted-foreground">Construction du deck...</p>}
 
       {build && (
-        <Step n={4} title={`Le deck — ${build.theme.label}`}>
+        <Step n={5} title={`Le deck — ${build.theme.label}`}>
           <div className="flex flex-col gap-4">
             <CompetitiveDeck build={build} />
             <CombosAndSynergies

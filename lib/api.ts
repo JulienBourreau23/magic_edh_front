@@ -991,6 +991,18 @@ export const balanceApi = {
 
 export type CompetitiveFormat = "commander" | "duel"
 
+/** Ce qu'un commandant peut monter d'un archétype, avec la collection. */
+export interface CompetitiveThemeScore {
+  slug: string
+  label: string
+  /** Somme des taux d'inclusion des 63 meilleures cartes possédées : ce qui classe. */
+  consensus: number
+  cards_usable: number
+  /** Part de l'optimum de cet archétype. 99 % d'une référence molle vaut moins que 93 % d'une forte. */
+  score: number
+  deck_count: number
+}
+
 export interface CompetitiveCommander {
   oracle_id: string
   scryfall_id: string
@@ -1002,19 +1014,32 @@ export interface CompetitiveCommander {
   image_downloaded: boolean
   game_changer: boolean
   /**
-   * L'archétype dont la collection couvre la plus grande part : ce qui classe
-   * la grille. Nul tant que la synchronisation EDHREC n'a pas tourné.
+   * L'archétype dont la collection couvre la plus grande part. Nul tant que la
+   * synchronisation EDHREC n'a pas tourné.
    */
-  best_theme: {
-    slug: string
-    label: string
-    /** Somme des taux d'inclusion des 63 meilleures cartes possédées : ce qui classe. */
-    consensus: number
-    cards_usable: number
-    /** Part de l'optimum de cet archétype. 99 % d'une référence molle vaut moins que 93 % d'une forte. */
-    score: number
-    deck_count: number
-  } | null
+  best_theme: CompetitiveThemeScore | null
+  /**
+   * L'archétype demandé à l'étape facultative, quand il y en a un : c'est lui
+   * qui classe alors la grille. Nul sinon — et il peut différer de
+   * `best_theme`, auquel cas l'écran le signale sans l'imposer.
+   */
+  selected_theme: CompetitiveThemeScore | null
+}
+
+/** Un archétype montable avec la collection, à l'étape facultative. */
+export interface CompetitiveArchetype {
+  slug: string
+  label: string
+  /** Combien de commandants possédés le jouent. */
+  commanders: number
+  /** Decks recensés par EDHREC **chez ces commandants**, pas dans le format. */
+  deck_count: number
+  /** Le commandant qui en monte le plus avec la collection. */
+  best: CompetitiveThemeScore & {
+    oracle_id: string
+    name: string
+    name_fr: string | null
+  }
 }
 
 export interface CompetitiveTheme {
@@ -1078,8 +1103,13 @@ export interface CompetitiveBuild {
 }
 
 export const competitiveApi = {
-  commanders: (format = "commander") =>
-    apiFetch<{ commanders: CompetitiveCommander[] }>(`/competitive/commanders?format=${format}`),
+  archetypes: (format: CompetitiveFormat) =>
+    apiFetch<{ archetypes: CompetitiveArchetype[] }>(`/competitive/archetypes?format=${format}`),
+  commanders: (format = "commander", theme?: string | null) =>
+    apiFetch<{ commanders: CompetitiveCommander[]; theme: string | null }>(
+      `/competitive/commanders?format=${format}` +
+      (theme ? `&theme=${encodeURIComponent(theme)}` : "")
+    ),
   themes: (commander: string, format: CompetitiveFormat) =>
     apiFetch<{ themes: CompetitiveTheme[]; error?: string }>(
       `/competitive/themes?commander=${commander}&format=${format}`
@@ -1088,6 +1118,101 @@ export const competitiveApi = {
     apiFetch<CompetitiveBuild>(
       `/competitive/build?commander=${commander}&theme=${encodeURIComponent(theme)}` +
       `&format=${format}&max_price=${maxPrice}`
+    ),
+}
+
+// --- Archétypes du format ----------------------------------------------------
+
+/** Une ligne du catalogue : ce que le format joue, et si on peut s'y mettre. */
+export interface ArchetypeSummary {
+  slug: string
+  label: string
+  /** Decks recensés par EDHREC sur cet archétype, tous commandants confondus. */
+  deck_count: number
+  commanders: number
+  /** Combien de ces commandants sont dans la collection. */
+  owned_commanders: number
+  /** Écrit à la main, nul pour un archétype non décrit. */
+  principle: string | null
+  /** Mots par lesquels on cherche l'archétype (« superfriends » → Planeswalkers). */
+  aliases: string[]
+}
+
+/** Le texte de l'article : d'un joueur, jamais d'une mesure. */
+export interface ArchetypeNote {
+  principle: string
+  wins: string
+  watch: string
+  aliases: string[]
+}
+
+/** Les colonnes renvoyées par `db/archetypes.CARD_COLUMNS`, rien de plus. */
+export interface ArchetypeCardBase {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  type_line: string | null
+  mana_cost: string | null
+  cmc: number | null
+  color_identity: string[]
+  price_eur: number | null
+  image_uri: string | null
+  image_downloaded: boolean
+  categories: string[]
+  game_changer: boolean
+  edhrec_rank: number | null
+  owned_quantity: number
+  wanted_quantity: number
+}
+
+export interface ArchetypeCommander extends ArchetypeCardBase {
+  /** Decks de ce commandant dans l'archétype, et decks de l'archétype en tout. */
+  num_decks: number
+  potential_decks: number
+  /**
+   * Cartes de l'archétype jouables dans son identité de couleur, plafonnées aux
+   * créneaux du noyau. En dessous de `core_slots`, l'archétype n'a pas assez de
+   * cartes dans ces couleurs — ce n'est pas un manque de la collection.
+   */
+  core_size: number
+  core_owned: number
+  /** Prix des cartes du noyau qui manquent. Les cartes sans prix n'y sont pas. */
+  missing_price: number
+  unknown_price: number
+  /** Ce qui manque au-dessus du plafond : trois pièces chères ≠ soixante à 5 €. */
+  over_cap_cards: number
+  over_cap_price: number
+}
+
+export interface ArchetypeCard extends ArchetypeCardBase {
+  /** La rubrique d'EDHREC qui cite la carte : c'est elle qui dit pourquoi. */
+  section: string
+  /** Écart avec « jouée dans cette couleur en général ». Négative = moins jouée ici. */
+  synergy: number | null
+  /** Part des decks **qui pouvaient la jouer** et qui la jouent. */
+  inclusion_rate: number | null
+}
+
+export interface ArchetypeDetail {
+  archetype: { slug: string; label: string; deck_count: number; fetched_at: string }
+  note: ArchetypeNote | null
+  commanders: ArchetypeCommander[]
+  cards: ArchetypeCard[]
+  core_slots: number
+  headline_sections: string[]
+  max_price: number
+  format: CompetitiveFormat
+}
+
+export const archetypesApi = {
+  list: (format: CompetitiveFormat = "commander") =>
+    apiFetch<{ archetypes: ArchetypeSummary[]; documented: number; error: string | null }>(
+      `/archetypes?format=${format}`
+    ),
+  get: (slug: string, format: CompetitiveFormat = "commander", maxPrice = 50) =>
+    apiFetch<ArchetypeDetail>(
+      `/archetypes/${encodeURIComponent(slug)}?format=${format}&max_price=${maxPrice}`
     ),
 }
 

@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/deck-ideas", label: "Quel deck monter" },
   { href: "/deck-plans", label: "Monter 4 decks" },
   { href: "/competitive", label: "Deck compétitif" },
+  { href: "/archetypes", label: "Archétypes" },
   { href: "/wishlist", label: "Liste de recherche" },
   { href: "/must-have", label: "Cartes à avoir" },
   { href: "/terrains-budget", label: "Terrains budget" },
