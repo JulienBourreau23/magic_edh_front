@@ -1216,6 +1216,80 @@ export const archetypesApi = {
     ),
 }
 
+// --- Règles du format : banlists, brackets, Game Changers --------------------
+
+/** Une carte d'une des listes de règles. Les deux drapeaux voyagent toujours :
+ *  c'est ce qui permet de dire « bannie ici, légale là-bas » sans second appel. */
+export interface RuleCard {
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  type_line: string | null
+  mana_cost: string | null
+  cmc: number | null
+  color_identity: string[]
+  price_eur: number | null
+  image_uri: string | null
+  image_downloaded: boolean
+  categories: string[]
+  game_changer: boolean
+  edhrec_rank: number | null
+  legal_commander: boolean
+  legal_duel: boolean
+  banned_commander: boolean
+  banned_duel: boolean
+  /** Interdite comme commandant seulement (duel) : jouable dans les 99. */
+  banned_as_commander_duel: boolean
+  owned_quantity: number
+}
+
+export interface Banlist {
+  /** La banlist proprement dite. */
+  cards: RuleCard[]
+  /** Bannies par leur type (Conspiracy, Stickers) ou leur édition (Unfinity,
+   *  anniversaires) : elles gonflent le total sans intéresser personne. */
+  outside_tournament: RuleCard[]
+}
+
+export interface BracketLevel {
+  level: number
+  name: string
+  principle: string
+  rules: string[]
+}
+
+export interface BracketCriterion {
+  key: string
+  label: string
+  /** Ce que dit le texte officiel. */
+  official: string
+  /** Ce que le site sait en constater, et comment. */
+  measured: string
+  /** Le verdict réel du moteur sur un deck minimal : il suit le code, pas un texte. */
+  demonstration: { deck: string; verdict: string; min: number; max: number; reasons: string[] }
+}
+
+export interface BracketRules {
+  brackets: BracketLevel[]
+  criteria: BracketCriterion[]
+  baseline: { deck: string; verdict: string }
+  not_measured: { label: string; why: string }[]
+}
+
+export interface RulesResponse {
+  banlists: Record<CompetitiveFormat, Banlist>
+  banned_as_commander: Record<CompetitiveFormat, RuleCard[]>
+  game_changers: RuleCard[]
+  brackets: BracketRules
+  /** Non nul quand la resynchronisation Scryfall n'a pas encore rempli les colonnes. */
+  error: string | null
+}
+
+export const rulesApi = {
+  get: () => apiFetch<RulesResponse>("/rules"),
+}
+
 // --- Liste de recherche ------------------------------------------------------
 
 export interface WishlistEntry extends Card {
