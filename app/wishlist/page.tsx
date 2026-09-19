@@ -1,12 +1,22 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { CardSearch } from "@/components/CardSearch"
 import { CardTile } from "@/components/CardTile"
+import { WishlistFilters, WishlistSummary } from "@/components/WishlistFilters"
+import {
+  EMPTY_WISHLIST_FILTERS,
+  availableRoles,
+  filterWishlist,
+  isWishlistFiltered,
+  sortWishlist,
+  summarize,
+  type WishlistFilterState,
+} from "@/lib/wishlist-filters"
 import {
   displayName,
   wishlistApi,
@@ -23,6 +33,7 @@ export default function WishlistPage() {
   const [importing, setImporting] = useState(false)
   const [lastImport, setLastImport] = useState<CollectionImportResult | null>(null)
   const [view, setView] = useState<"liste" | "visuels">("liste")
+  const [filters, setFilters] = useState<WishlistFilterState>(EMPTY_WISHLIST_FILTERS)
   // Confirmation visuelle du dernier ajout : deux cartes au nom proche ne se
   // distinguent que par l'image, et une erreur ici se solde par un achat.
   const [lastAdded, setLastAdded] = useState<MtgCard | null>(null)
@@ -40,6 +51,15 @@ export default function WishlistPage() {
         .catch((err) => setError(err instanceof Error ? err.message : "Erreur inattendue")),
     []
   )
+
+  // Ce qui est affiché, et ce que ça coûte : la question de la page est « par
+  // quoi je commence », pas « qu'est-ce qu'il y a dans la liste ».
+  const visible = useMemo(
+    () => sortWishlist(filterWishlist(entries, filters), filters.sort),
+    [entries, filters]
+  )
+  const shown = useMemo(() => summarize(visible), [visible])
+  const roles = useMemo(() => availableRoles(entries), [entries])
 
   useEffect(() => {
     refresh()
@@ -177,6 +197,8 @@ export default function WishlistPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex flex-col gap-3">
+        <WishlistFilters filters={filters} onChange={setFilters} roles={roles} />
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-medium">À acheter</h2>
           <div className="flex gap-1">
@@ -197,14 +219,26 @@ export default function WishlistPage() {
           </div>
         </div>
 
+        {entries.length > 0 && (
+          <WishlistSummary
+            shown={shown}
+            total={stats?.total_price_eur ?? 0}
+            filtered={isWishlistFiltered(filters)}
+          />
+        )}
+
         {entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Liste vide. Ajoute une carte ci-dessus, ou depuis les listes d&apos;achats des pages
             d&apos;équilibrage et de deck compétitif.
           </p>
+        ) : visible.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucune carte ne passe ces filtres — {entries.length} en tout dans la liste.
+          </p>
         ) : view === "visuels" ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {entries.map((entry) => (
+            {visible.map((entry) => (
               <div key={entry.oracle_id} className="flex flex-col gap-1">
                 <CardTile card={entry} caption={displayName(entry)} />
                 <Button size="sm" onClick={() => run(wishlistApi.acquire(entry.oracle_id, 1))}>
@@ -226,7 +260,7 @@ export default function WishlistPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry) => (
+                {visible.map((entry) => (
                   <tr key={entry.oracle_id} className="border-b last:border-0">
                     <td className="py-1.5 pr-4">
                       {displayName(entry)}
