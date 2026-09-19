@@ -870,6 +870,72 @@ export const buildApi = {
     }),
 }
 
+// --- Terrains budget, par cycle ------------------------------------------------
+
+/** Une vidéo qui conseille ce cycle, et le moment où elle en parle. */
+export interface VideoAdvice {
+  video_id: string
+  title: string
+  channel: string | null
+  url: string
+  mentions: number
+  first_seconds: number | null
+}
+
+export interface BudgetLandCard extends Pick<Card,
+  "oracle_id" | "scryfall_id" | "name" | "name_fr" | "type_line" | "price_eur" |
+  "image_uri" | "image_downloaded" | "produced_mana" | "color_identity" | "edhrec_rank"> {
+  owned_quantity: number
+  wanted_quantity: number
+  /** Decks actifs qui la jouent déjà — les archivés ne comptent pas. */
+  decks: number
+}
+
+export interface LandCycle {
+  key: string
+  label: string
+  condition: string
+  cards: BudgetLandCard[]
+  owned: number
+  missing_cost_eur: number
+  videos: VideoAdvice[]
+}
+
+export interface BudgetLands {
+  identity: string[]
+  max_price_eur: number
+  format: DeckFormat
+  cycles: LandCycle[]
+  /** Terrains utiles mais sans famille : utilitaires, arc-en-ciel, fetchlands. */
+  other_count: number
+  totals: { cards: number; owned: number; missing_cost_eur: number }
+}
+
+export const budgetLandsApi = {
+  byIdentity: (identity: string[], maxPrice = 2, format: DeckFormat = "commander") =>
+    apiFetch<BudgetLands>(
+      `/budget-lands?identity=${identity.join("")}&max_price=${maxPrice}&format=${format}`
+    ),
+  byDeck: (deckId: number, maxPrice = 2, format: DeckFormat = "commander") =>
+    apiFetch<BudgetLands>(`/budget-lands?deck=${deckId}&max_price=${maxPrice}&format=${format}`),
+}
+
+export interface VideoSource {
+  video_id: string
+  title: string
+  channel: string | null
+  url: string
+  language: string | null
+  auto_generated: boolean
+  fetched_at: string
+  cards: number
+  cycles: number
+}
+
+export const videosApi = {
+  list: () => apiFetch<{ videos: VideoSource[] }>("/videos"),
+}
+
 // --- Performance mesurée ------------------------------------------------------
 
 /** Un archétype mesuré, ou le commandant lui-même quand `theme_slug` est vide. */

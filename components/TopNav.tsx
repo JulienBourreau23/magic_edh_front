@@ -17,6 +17,7 @@ const LINKS = [
   { href: "/competitive", label: "Deck compétitif" },
   { href: "/wishlist", label: "Liste de recherche" },
   { href: "/must-have", label: "Cartes à avoir" },
+  { href: "/terrains-budget", label: "Terrains budget" },
   { href: "/balance", label: "Équilibrer" },
   { href: "/matchup", label: "Comparer" },
   { href: "/performance", label: "Qui gagne" },
