@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
+import { CardHoverPreview, hoverHandlers, type HoveredCard } from "@/components/CardHoverPreview"
 import { DeckExport } from "@/components/DeckExport"
 import { deckAnalysis } from "@/lib/deck-sheet"
 import { groupIntoSections } from "@/lib/decklist"
@@ -115,6 +116,11 @@ export default function BuildPage() {
   const lands = entries
     .filter((entry) => (entry.card.type_line ?? "").includes("Land"))
     .reduce((sum, entry) => sum + entry.quantity, 0)
+
+  // La carte survolée, pour l'aperçu en grand. Elle ne change qu'au passage
+  // d'une ligne à l'autre : c'est l'aperçu qui se positionne, la page n'a pas
+  // à suivre le curseur.
+  const [hovered, setHovered] = useState<HoveredCard | null>(null)
 
   const payload = useCallback(
     () => ({
@@ -332,6 +338,7 @@ export default function BuildPage() {
                         type="button"
                         className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left hover:bg-muted"
                         onClick={() => add(card)}
+                        {...hoverHandlers(card, setHovered)}
                       >
                         <span className="flex-1 truncate">{displayName(card)}</span>
                         {card.game_changer && <Badge variant="secondary">GC</Badge>}
@@ -399,6 +406,7 @@ export default function BuildPage() {
                           className="flex items-baseline gap-2 rounded px-1 text-left text-sm hover:bg-muted"
                           onClick={() => remove(card.scryfall_id)}
                           aria-label={`Retirer ${displayName(card)}`}
+                          {...hoverHandlers(card, setHovered)}
                         >
                           <span className="w-5 shrink-0 tabular-nums text-muted-foreground">
                             {draft.quantities[card.scryfall_id]}
@@ -553,6 +561,8 @@ export default function BuildPage() {
           </Card>
         </>
       )}
+
+      <CardHoverPreview hovered={hovered} />
     </div>
   )
 }
