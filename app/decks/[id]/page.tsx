@@ -15,6 +15,7 @@ import { DeckToolbar } from "@/components/DeckToolbar"
 import { ImportIssuesPanel } from "@/components/ImportIssuesPanel"
 import { CombosAndSynergies } from "@/components/CombosAndSynergies"
 import { DeckExport } from "@/components/DeckExport"
+import { deckAnalysis } from "@/lib/deck-sheet"
 
 const STATUS_STYLES: Record<string, string> = {
   ok: "text-muted-foreground",
@@ -89,7 +90,13 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
         </Button>
       </div>
 
-      <DeckExport deck={{ name: deck.name, format: deck.format }} cards={cards} />
+      <DeckExport
+        deck={{ name: deck.name, format: deck.format }}
+        cards={cards}
+        analysis={deckAnalysis(data, {
+          synergySubject: commander ? displayName(commander) : "le commandant",
+        })}
+      />
 
       <DeckToolbar
         deckId={deck.id}

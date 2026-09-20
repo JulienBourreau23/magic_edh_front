@@ -4,11 +4,12 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CardTile } from "@/components/CardTile"
-import { displayName, type CompetitiveBuild } from "@/lib/api"
+import { buildApi, displayName, type CompetitiveBuild } from "@/lib/api"
 import { groupIntoSections } from "@/lib/decklist"
 import { DeckExport } from "@/components/DeckExport"
 import { WishlistButton } from "@/components/WishlistButton"
 import { generatedDeckCards } from "@/lib/deck-pdf"
+import { deckAnalysis } from "@/lib/deck-sheet"
 
 /**
  * Courbe obtenue face à la courbe visée. Les deux barres partagent la même
@@ -74,6 +75,41 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
 
   const upgradeCost = build.upgrades.reduce((sum, item) => sum + item.price_eur, 0)
 
+  /**
+   * Ce deck n'est pas enregistré : pour l'évaluer, on le présente à
+   * `/build/evaluate` comme un brouillon de l'atelier — mêmes chiffres que la
+   * fiche d'un deck qui existerait. Les basiques y vont par leur impression,
+   * sans quoi la manabase serait jugée sur treize terrains au lieu de
+   * trente-six.
+   *
+   * L'appel n'a lieu qu'au clic sur l'export : la page répond déjà à une autre
+   * question, et payer une évaluation profonde à chaque construction la
+   * ralentirait pour un PDF que personne n'a demandé.
+   */
+  async function analysis() {
+    const evaluation = await buildApi.evaluate({
+      format: build.format,
+      commander_scryfall_id: build.commander.scryfall_id,
+      cards: [
+        { scryfall_id: build.commander.scryfall_id, quantity: 1 },
+        ...build.cards.map((card) => ({ scryfall_id: card.scryfall_id, quantity: 1 })),
+        ...build.lands.nonbasic.map((card) => ({ scryfall_id: card.scryfall_id, quantity: 1 })),
+        ...build.lands.basics_cards.map((card) => ({
+          scryfall_id: card.scryfall_id,
+          quantity: card.quantity,
+        })),
+      ],
+    })
+    // Synergies et combos restent **ceux de l'écran** : ici ils sont mesurés
+    // contre l'archétype choisi et non contre tous les decks du commandant,
+    // et c'est toute la différence de cette page.
+    return deckAnalysis(evaluation, {
+      synergies: build.synergies,
+      combos: build.combos,
+      synergySubject: `${displayName(build.commander)} — ${build.theme.label}`,
+    })
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -96,9 +132,12 @@ export function CompetitiveDeck({ build }: { build: CompetitiveBuild }) {
           format: build.format,
         }}
         cards={pdfCards}
+        loadAnalysis={analysis}
         hint={
           <>
-            Le deck n&apos;est pas enregistré : ces PDF sont la seule trace qu&apos;il en reste.
+            Le deck n&apos;est pas enregistré : ces PDF sont la seule trace qu&apos;il en reste. La
+            fiche l&apos;évalue au moment de l&apos;export — bracket, manabase, rôles — avec les
+            mêmes chiffres qu&apos;une fiche de deck.
             Les terrains de base y figurent par leur compte, sans visuel —{" "}
             <strong>aucune édition n&apos;a été choisie pour eux</strong>, seul leur nombre est
             calculé.

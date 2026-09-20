@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { CardTile } from "@/components/CardTile"
 import { DeckExport } from "@/components/DeckExport"
+import { deckAnalysis } from "@/lib/deck-sheet"
 import { groupIntoSections } from "@/lib/decklist"
 import { CARD_TYPES, roleLabel } from "@/lib/mtg-labels"
 import {
@@ -420,6 +421,10 @@ export default function BuildPage() {
             >
               {busy === "eval" ? "Évaluation…" : "Évaluer le deck"}
             </Button>
+            {/* L'évaluation est refaite à l'export, jamais lue depuis l'état
+                affiché : le brouillon a pu bouger depuis le dernier clic sur
+                « Évaluer », et une fiche qui décrirait l'état d'avant serait
+                fausse sans rien signaler. */}
             <DeckExport
               deck={{ name: name || "Brouillon", format: draft.format }}
               cards={entries.map((entry) => ({
@@ -427,10 +432,16 @@ export default function BuildPage() {
                 quantity: entry.quantity,
                 is_commander: entry.card.scryfall_id === draft.commander?.scryfall_id,
               }))}
+              loadAnalysis={async () =>
+                deckAnalysis(await buildApi.evaluate(payload()), {
+                  synergySubject: draft.commander ? displayName(draft.commander) : "le commandant",
+                })
+              }
               hint={
                 <>
-                  Le PDF reprend le brouillon <strong>tel qu&apos;il est à l&apos;écran</strong>,
-                  enregistré ou non.
+                  La fiche reprend le brouillon <strong>tel qu&apos;il est à l&apos;écran</strong>,
+                  enregistré ou non, et l&apos;évalue au moment de l&apos;export — mêmes chiffres
+                  que le bouton « Évaluer le deck ».
                 </>
               }
             />

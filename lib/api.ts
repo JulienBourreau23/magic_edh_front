@@ -259,6 +259,24 @@ export interface BasicLandAdvice {
   confirmed?: boolean
 }
 
+/**
+ * Le conseil d'échange de basiques vaut-il d'être montré ?
+ *
+ * La simulation tranche quand elle a tourné : elle voit les sources partagées
+ * qu'une duale W/U fait compter deux fois à l'estimation rapide. Sans mesure
+ * (pages qui n'appellent pas le mode complet), on retombe sur l'estimation, au
+ * demi-dixième de carte près — en deçà, l'échange ne changerait rien de
+ * visible.
+ *
+ * La règle est partagée par l'écran (`ManabaseAdvice`) et la fiche PDF
+ * (`lib/deck-sheet.ts`) : deux seuils divergents feraient conseiller sur l'un
+ * ce que l'autre tait, sans que rien ne le signale.
+ */
+export function basicSwapWorthwhile(advice: BasicLandAdvice | null): advice is BasicLandAdvice {
+  if (advice === null) return false
+  return advice.confirmed ?? advice.stuck_before - advice.stuck_after >= 0.1
+}
+
 export interface Manabase {
   land_count: number
   recommended_lands: string
@@ -1084,7 +1102,17 @@ export interface CompetitiveBuild {
   theme: { slug: string; label: string; deck_count: number }
   format: CompetitiveFormat
   cards: CompetitiveCard[]
-  lands: { nonbasic: CompetitiveCard[]; basics: Record<string, number>; total: number }
+  lands: {
+    nonbasic: CompetitiveCard[]
+    basics: Record<string, number>
+    /**
+     * Les basiques **avec leur impression**, comme `/build/lands`. Un nom seul
+     * ne s'évalue pas : sans eux, faire noter ce deck par `/build/evaluate`
+     * jugerait sa manabase sur les seuls non-basiques.
+     */
+    basics_cards: (CompetitiveCard & { quantity: number })[]
+    total: number
+  }
   counts: {
     total: number
     nonland: number

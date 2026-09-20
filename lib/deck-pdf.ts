@@ -1,18 +1,28 @@
 import { jsPDF } from "jspdf"
 import { cardImageUrl, displayName } from "@/lib/api"
 import { groupIntoSections } from "@/lib/decklist"
+import { drawAnalysis, drawSummaryBand, hasAnalysis, type DeckPdfAnalysis } from "@/lib/deck-sheet"
+import { LINE_HEIGHT, MARGIN, PAGE_BOTTOM, PAGE_WIDTH, fit } from "@/lib/pdf-page"
 
 /**
  * Export PDF d'une fiche de deck, côté navigateur comme la liste d'achats
  * (`lib/shopping-pdf.ts`). Trois sorties pour trois usages distincts, qui ne se
  * remplacent pas :
  *
- * - `names` : la liste par section, à relire ou à ranger avec le deck ;
+ * - `names` : **la fiche** — la liste par section, précédée des chiffres qui
+ *   situent le deck et suivie de ce que le site en dit (bracket, manabase,
+ *   rôles, combos, synergies). C'est ce qu'on garde avec la boîte, et une
+ *   liste seule ne rappelle pas pourquoi le deck est ce qu'il est. Les écrans
+ *   qui n'ont pas d'analyse à donner exportent la liste seule, sans que rien
+ *   d'autre ne change ;
  * - `images` : les visuels, pour reconnaître les cartes sans les sortir de la
- *   boîte — c'est le format qui coûte cher (une centaine d'images) ;
+ *   boîte — c'est le format qui coûte cher (une centaine d'images). Il garde
+ *   le bandeau de tête mais **pas** l'analyse : c'est une planche, et
+ *   l'imprimer deux fois ne l'expliquerait pas mieux ;
  * - `tournament` : **tout** est listé, rien d'autre que les noms et les
  *   quantités, dans l'ordre alphabétique où un arbitre vérifie une feuille de
- *   deck.
+ *   deck. Aucune analyse, jamais : c'est le seul document qu'on remet à
+ *   quelqu'un d'autre, et le reste l'encombrerait.
  */
 export type DeckPdfMode = "names" | "images" | "tournament"
 
@@ -36,6 +46,12 @@ export type DeckPdfDeck = {
    * là-dessus se fait passer pour une decklist jouable.
    */
   note?: string
+  /**
+   * Ce que le site dit du deck, tel que l'écran l'affiche. Absent, le PDF
+   * `names` reste la liste seule — c'est le cas de `/deck-ideas`, dont le
+   * noyau n'a pas de manabase et donc pas de diagnostic possible.
+   */
+  analysis?: DeckPdfAnalysis | null
 }
 
 /**
@@ -75,11 +91,6 @@ export function generatedDeckCards(input: {
   return cards
 }
 
-const MARGIN = 14
-const PAGE_WIDTH = 210
-const PAGE_BOTTOM = 283
-const LINE_HEIGHT = 4.6
-
 /**
  * Visuels par ligne. Cinq tiennent une planche de 25 cartes par page — à 33 mm
  * de large, l'illustration reste reconnaissable (c'est à ça qu'elle sert ici,
@@ -99,14 +110,26 @@ export async function downloadDeckPdf(
   const doc = new jsPDF()
   const ordered = commanderFirst(cards)
   const total = ordered.reduce((sum, card) => sum + card.quantity, 0)
+  // La feuille de tournoi ignore l'analyse même quand l'écran en a une.
+  const analysis = mode !== "tournament" && hasAnalysis(deck.analysis) ? deck.analysis : null
 
-  const y = drawHeader(doc, deck, ordered, total, mode)
+  let y = drawHeader(doc, deck, ordered, total, mode)
+  if (analysis) y = drawSummaryBand(doc, analysis, y)
 
   if (mode === "images") await drawImages(doc, ordered, y, onProgress)
   else if (mode === "tournament") drawTournamentList(doc, ordered, y)
   else drawSections(doc, ordered, y)
 
-  doc.save(`${slug(deck.name)}-${mode === "tournament" ? "tournoi" : mode === "images" ? "visuels" : "liste"}-${new Date().toISOString().slice(0, 10)}.pdf`)
+  if (analysis && mode === "names") drawAnalysis(doc, deck.name, analysis)
+
+  doc.save(`${slug(deck.name)}-${fileKind(mode, analysis !== null)}-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
+
+/** Le nom du fichier dit ce qu'il contient : une fiche n'est pas une liste. */
+function fileKind(mode: DeckPdfMode, analysed: boolean): string {
+  if (mode === "tournament") return "tournoi"
+  if (mode === "images") return "visuels"
+  return analysed ? "fiche" : "liste"
 }
 
 /**
@@ -389,14 +412,6 @@ function fitCardName(doc: jsPDF, name: string, maxWidth: number): string {
   if (doc.getTextWidth(name) <= maxWidth) return name
   const front = name.split(" // ")[0]
   return fit(doc, front, maxWidth)
-}
-
-/** Tronque au besoin : un nom trop long chevaucherait la colonne voisine. */
-function fit(doc: jsPDF, value: string, maxWidth: number): string {
-  if (doc.getTextWidth(value) <= maxWidth) return value
-  let cut = value
-  while (cut.length > 1 && doc.getTextWidth(`${cut}…`) > maxWidth) cut = cut.slice(0, -1)
-  return `${cut}…`
 }
 
 function slug(value: string): string {

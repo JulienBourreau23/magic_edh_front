@@ -18,7 +18,7 @@
  * veut dire que le problème ne se règle pas avec des basiques — il faut des
  * terrains, ou moins de cartes exigeantes dans cette couleur.
  */
-import type { BasicLandAdvice, StrainedCard } from "@/lib/api"
+import { basicSwapWorthwhile, type BasicLandAdvice, type StrainedCard } from "@/lib/api"
 
 // Accordés au féminin pluriel : ils qualifient des « sources ».
 /**
@@ -48,11 +48,9 @@ export function ManabaseAdvice({
   basicLands: BasicLandAdvice | null
 }) {
   // Le conseil n'est montré que si la simulation le confirme : elle voit les
-  // sources partagées que l'estimation rapide compte deux fois. Sans mesure
-  // (pages qui n'appellent pas le mode complet), on retombe sur l'estimation.
-  const worthwhile =
-    basicLands !== null &&
-    (basicLands.confirmed ?? basicLands.stuck_before - basicLands.stuck_after >= 0.1)
+  // sources partagées que l'estimation rapide compte deux fois. La règle vit
+  // dans `lib/api.ts` parce que la fiche PDF la rejoue à l'identique.
+  const worthwhile = basicSwapWorthwhile(basicLands)
 
   return (
     <div className="flex flex-col gap-3 text-sm">

@@ -10,6 +10,7 @@ import { CombosAndSynergies } from "@/components/CombosAndSynergies"
 import { DeckExport } from "@/components/DeckExport"
 import { WishlistButton } from "@/components/WishlistButton"
 import { generatedDeckCards } from "@/lib/deck-pdf"
+import { type DeckPdfAnalysis } from "@/lib/deck-sheet"
 import {
   deckIdeasApi,
   displayName,
@@ -146,10 +147,21 @@ export default function DeckIdeaDetailPage({ params }: { params: Promise<{ id: s
               cards: slots.map((slot) => slot.replacement ?? slot.proposed),
             })}
             modes={["names", "images"]}
+            analysis={{
+              combos: data.combos,
+              synergies: data.synergies,
+              synergySubject: displayName(data.commander),
+              caveat:
+                "Cette liste est un noyau non-terrain : sans manabase, ni bracket, ni diagnostic " +
+                "de couleurs, ni équilibre des rôles ne peuvent être calculés dessus. Ce qui " +
+                "suit est donc ce que le site sait dire d'une liste seule.",
+            } satisfies DeckPdfAnalysis}
             hint={
               <>
                 Le PDF reprend la liste <strong>telle qu&apos;elle est à l&apos;écran</strong>,
-                remplacements compris. Pas de feuille de tournoi : il manque les{" "}
+                remplacements compris, avec les combos et les synergies de cette page — mais ni
+                bracket ni manabase, qu&apos;un noyau sans terrains ne permet pas de calculer. Pas
+                de feuille de tournoi : il manque les{" "}
                 {99 - slots.length} terrains, et une liste incomplète ne se présente pas à un
                 arbitre.
               </>
