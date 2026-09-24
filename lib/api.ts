@@ -1009,6 +1009,21 @@ export const balanceApi = {
 
 export type CompetitiveFormat = "commander" | "duel"
 
+/**
+ * D'où viennent les taux d'un thème. `edhrec` mesure le multijoueur ;
+ * `mtgtop8` les tops des tournois de Duel Commander — la seule référence
+ * juste pour un deck de duel. Les deux ne sont pas sur la même échelle.
+ */
+export type ReferenceSource = "edhrec" | "mtgtop8"
+
+/** Sur quoi reposent les chiffres de duel : la fenêtre du méta MTGTop8. */
+export interface DuelMetaSummary {
+  events: number
+  decks: number
+  since: string | null
+  until: string | null
+}
+
 /** Ce qu'un commandant peut monter d'un archétype, avec la collection. */
 export interface CompetitiveThemeScore {
   slug: string
@@ -1019,6 +1034,7 @@ export interface CompetitiveThemeScore {
   /** Part de l'optimum de cet archétype. 99 % d'une référence molle vaut moins que 93 % d'une forte. */
   score: number
   deck_count: number
+  source: ReferenceSource
 }
 
 export interface CompetitiveCommander {
@@ -1063,8 +1079,12 @@ export interface CompetitiveArchetype {
 export interface CompetitiveTheme {
   slug: string
   label: string
-  /** Nombre de decks recensés par EDHREC sur cet archétype. */
+  /**
+   * Decks de référence : recensés par EDHREC sur cet archétype, ou tops de
+   * tournoi de duel (ceux du commandant, ou tout le méta).
+   */
   deck_count: number
+  source: ReferenceSource
   cards_legal: number
   cards_owned: number
   /** Part du vivier de l'archétype déjà en collection, de 0 à 1. */
@@ -1099,7 +1119,17 @@ export interface CompetitiveBuild {
   /** Mesurée contre les decks de l'archétype choisi, pas contre tous ceux du commandant. */
   synergies: DeckSynergy[]
   commander: CompetitiveCard
-  theme: { slug: string; label: string; deck_count: number }
+  theme: {
+    slug: string
+    label: string
+    deck_count: number
+    source: ReferenceSource
+    /**
+     * Méta du duel seulement : la cible (terrains, types, courbe) vient des
+     * decks de la même identité, ou du format entier faute d'en avoir assez.
+     */
+    profile_scope: "identity" | "format" | null
+  }
   format: CompetitiveFormat
   cards: CompetitiveCard[]
   lands: {
@@ -1134,12 +1164,17 @@ export const competitiveApi = {
   archetypes: (format: CompetitiveFormat) =>
     apiFetch<{ archetypes: CompetitiveArchetype[] }>(`/competitive/archetypes?format=${format}`),
   commanders: (format = "commander", theme?: string | null) =>
-    apiFetch<{ commanders: CompetitiveCommander[]; theme: string | null }>(
+    apiFetch<{
+      commanders: CompetitiveCommander[]
+      theme: string | null
+      /** Nul hors duel, ou tant que le méta MTGTop8 n'est pas synchronisé. */
+      duel_meta: DuelMetaSummary | null
+    }>(
       `/competitive/commanders?format=${format}` +
       (theme ? `&theme=${encodeURIComponent(theme)}` : "")
     ),
   themes: (commander: string, format: CompetitiveFormat) =>
-    apiFetch<{ themes: CompetitiveTheme[]; error?: string }>(
+    apiFetch<{ themes: CompetitiveTheme[]; error?: string; duel_meta?: DuelMetaSummary | null }>(
       `/competitive/themes?commander=${commander}&format=${format}`
     ),
   build: (commander: string, theme: string, format: CompetitiveFormat, maxPrice = 50) =>
@@ -1380,6 +1415,13 @@ export interface MustHaveCard {
    * exemplaire sans rien dire.
    */
   wanted: number
+  /**
+   * Duel seulement, quand le méta MTGTop8 est synchronisé : la part des tops
+   * de tournoi de duel qui jouent la carte (de 0 à 1). C'est elle qui classe
+   * alors, et non `edhrec_rank`, qui mesure le multijoueur.
+   */
+  duel_share?: number
+  duel_decks?: number
 }
 
 export interface MustHaveGroup {
@@ -1402,6 +1444,9 @@ export interface MustHave {
   format: string
   max_price_eur: number
   groups: MustHaveGroup[]
+  /** Ce qui classe : la popularité EDHREC, ou les tops de duel. */
+  source: ReferenceSource
+  duel_meta?: DuelMetaSummary
 }
 
 export const mustHaveApi = {
@@ -1433,6 +1478,8 @@ export interface CollectionCoverage {
   stats: CollectionStats
   groups: CoverageGroup[]
   rank_distribution: RankBand[]
+  /** Ce qui classe les listes : la popularité EDHREC, ou les tops de duel. */
+  source: ReferenceSource
 }
 
 export const coverageApi = {

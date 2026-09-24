@@ -16,6 +16,7 @@ import {
   type CompetitiveCommander,
   type CompetitiveFormat,
   type CompetitiveTheme,
+  type DuelMetaSummary,
 } from "@/lib/api"
 
 const FORMATS: { value: CompetitiveFormat; label: string; hint: string }[] = [
@@ -87,6 +88,9 @@ function Builder() {
   const [themes, setThemes] = useState<CompetitiveTheme[]>([])
   const [themesError, setThemesError] = useState<string | null>(null)
   const [build, setBuild] = useState<CompetitiveBuild | null>(null)
+  // Sur quoi reposent les chiffres de duel : nul hors duel, ou tant que le
+  // méta MTGTop8 n'est pas synchronisé — l'écran le dit alors.
+  const [duelMeta, setDuelMeta] = useState<DuelMetaSummary | null>(null)
   const [loadingThemes, setLoadingThemes] = useState(false)
   const [building, setBuilding] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -102,7 +106,10 @@ function Builder() {
     if (!format) return
     competitiveApi
       .commanders(format, archetype?.slug)
-      .then((data) => setCommanders(data.commanders))
+      .then((data) => {
+        setCommanders(data.commanders)
+        setDuelMeta(data.duel_meta)
+      })
       .catch(fail)
   }, [format, archetype, fail])
 
@@ -230,6 +237,7 @@ function Builder() {
           seulement comme commandant sont traitées comme bannies tout court — plus strict que la
           règle réelle, jamais plus laxiste.
         </p>
+        {format === "duel" && <DuelSource meta={duelMeta} />}
       </Step>
 
       {format && (
@@ -313,6 +321,14 @@ function Builder() {
             proposés sont ceux de tes commandants : ce sont les seuls dont on sache ce
             qu&apos;ils coûteraient. Le nombre de decks recensés est compté chez eux, pas dans le
             format entier.
+            {format === "duel" && (
+              <>
+                {" "}
+                <strong>En duel, ces stratégies viennent d&apos;EDHREC, donc du multijoueur</strong>{" "}
+                : c&apos;est la seule source qui les nomme. Les tops de tournoi, eux, ne classent
+                que par commandant.
+              </>
+            )}
           </p>
         </Step>
       )}
@@ -348,6 +364,9 @@ function Builder() {
                   const better =
                     entry.selected_theme && entry.best_theme &&
                     entry.best_theme.slug !== entry.selected_theme.slug &&
+                    // Deux sources, deux échelles : un poids de méta de duel
+                    // et un poids EDHREC ne se comparent pas.
+                    entry.best_theme.source === entry.selected_theme.source &&
                     entry.best_theme.consensus > entry.selected_theme.consensus
                       ? entry.best_theme
                       : null
@@ -399,6 +418,16 @@ function Builder() {
           {loadingThemes && themes.length === 0 && (
             <p className="text-sm text-muted-foreground">Lecture des archétypes...</p>
           )}
+          {format === "duel" && themes.some((theme) => theme.source === "mtgtop8") && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              En duel, les références de tournoi passent en tête.{" "}
+              <strong>Ses listes de tournoi</strong>{" "}n&apos;existent que pour un commandant assez
+              joué en tops : c&apos;est la meilleure cible possible. <strong>Le méta du duel</strong>{" "}
+              existe toujours : les cartes qui gagnent en face à face dans ses couleurs, départagées
+              par ce qu&apos;EDHREC voit jouer avec lui — il ne connaît pas son plan de jeu, seulement
+              ce qui marche en duel. Les archétypes EDHREC restent dessous, mesurés en multijoueur.
+            </p>
+          )}
           {archetype && (
             <p className="mb-3 text-xs text-muted-foreground">
               Le deck est déjà construit sur <strong>{archetype.label}</strong>, choisi à
@@ -417,6 +446,11 @@ function Builder() {
                 }`}
               >
                 <span className="min-w-32 font-medium">{theme.label}</span>
+                {format === "duel" && (
+                  <Badge variant={theme.source === "mtgtop8" ? "default" : "outline"}>
+                    {theme.source === "mtgtop8" ? "tops de duel" : "EDHREC · multi"}
+                  </Badge>
+                )}
                 <span className="h-2 w-40 overflow-hidden rounded-full bg-muted">
                   <span
                     className="block h-full bg-primary"
@@ -424,10 +458,13 @@ function Builder() {
                   />
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {theme.cards_owned} / {theme.cards_legal} cartes de l&apos;archétype en collection
+                  {theme.cards_owned} / {theme.cards_legal}{" "}
+                  {theme.source === "mtgtop8" ? "cartes jouées" : "cartes de l\u2019archétype"} en
+                  collection
                 </span>
                 <Badge variant="secondary" className="ml-auto">
-                  {theme.deck_count.toLocaleString("fr-FR")} decks recensés
+                  {theme.deck_count.toLocaleString("fr-FR")}{" "}
+                  {theme.source === "mtgtop8" ? "tops de tournoi" : "decks recensés"}
                 </Badge>
               </button>
             ))}
@@ -445,11 +482,38 @@ function Builder() {
               combos={build.combos}
               synergies={build.synergies}
               subject={displayName(build.commander)}
-              themeLabel={build.theme.label}
+              // Un thème de duel n'a pas d'équivalent EDHREC : la synergie se
+              // mesure alors contre tous les decks du commandant.
+              themeLabel={build.theme.source === "mtgtop8" ? undefined : build.theme.label}
             />
           </div>
         </Step>
       )}
     </div>
+  )
+}
+
+/**
+ * D'où viennent les chiffres de duel. Sans ce bandeau, rien ne distinguerait
+ * un conseil tiré des tops de tournoi d'un conseil tiré du multijoueur.
+ */
+function DuelSource({ meta }: { meta: DuelMetaSummary | null }) {
+  if (!meta) {
+    return (
+      <p className="mt-2 text-xs text-destructive">
+        Le méta du duel n&apos;est pas synchronisé (<code>scripts/sync_mtgtop8.py</code>) : les
+        références viennent d&apos;EDHREC, c&apos;est-à-dire du multijoueur, filtrées par la seule
+        banlist du duel.
+      </p>
+    )
+  }
+  const since = meta.since ? meta.since.split("-").reverse().join("/") : null
+  return (
+    <p className="mt-2 text-xs text-muted-foreground">
+      En duel, les cartes sont classées par les <strong>tops de tournoi de Duel Commander</strong>{" "}
+      relevés sur MTGTop8 — {meta.decks.toLocaleString("fr-FR")} decks,{" "}
+      {meta.events.toLocaleString("fr-FR")} tournois{since && <> depuis le {since}</>} — et non
+      par EDHREC, qui mesure le multijoueur.
+    </p>
   )
 }

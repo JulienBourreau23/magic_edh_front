@@ -96,7 +96,8 @@ export default function MustHavePage() {
       <div>
         <h1 className="text-2xl font-semibold">Cartes à avoir</h1>
         <p className="text-sm text-muted-foreground">
-          Les cartes les plus jouées de chaque type, classées par popularité EDHREC. Ce n&apos;est
+          Les cartes les plus jouées de chaque type — par popularité EDHREC en multijoueur, par
+          présence dans les tops de tournoi en duel. Ce n&apos;est
           pas un palmarès mais une <strong>liste d&apos;achats de long terme</strong> : ce que tu
           possèdes déjà reste affiché quel qu&apos;en soit le prix, et le reste n&apos;apparaît que
           sous ton plafond. La liste se met à jour toute seule au rythme mensuel de la
@@ -147,10 +148,21 @@ export default function MustHavePage() {
         </div>
       </div>
 
-      {format === "duel" && (
+      {format === "duel" && data?.source === "mtgtop8" && data.duel_meta && (
         <p className="text-sm text-muted-foreground">
-          La banlist du Duel Commander est plus restrictive : Sol Ring et Ancient Tomb en sortent,
-          et des cartes moins jouées prennent leur place.
+          En duel, le classement ne suit <strong>pas</strong> EDHREC, qui mesure le multijoueur :
+          il suit la part des <strong>tops de tournoi de Duel Commander</strong> relevés sur
+          MTGTop8 qui jouent la carte — {data.duel_meta.decks.toLocaleString("fr-FR")} decks
+          {data.duel_meta.since && <> depuis le {formatDate(data.duel_meta.since)}</>}. Ce qui gagne
+          en face à face n&apos;est pas ce qui se joue à quatre.
+        </p>
+      )}
+      {format === "duel" && data?.source === "edhrec" && (
+        <p className="text-sm text-muted-foreground">
+          Le méta du duel n&apos;est pas encore synchronisé (<code>scripts/sync_mtgtop8.py</code>) :
+          ce classement est celui d&apos;EDHREC, donc du <strong>multijoueur</strong>, limité à la
+          banlist du duel. Sol Ring et Ancient Tomb en sortent, mais l&apos;ordre reste celui
+          d&apos;un autre format.
         </p>
       )}
 
@@ -215,6 +227,27 @@ function AddButtons({
 }
 
 /** Prix à payer, ou l'état de la carte quand il n'y a rien à payer. */
+/**
+ * Ce qui classe la carte. En duel, la part des tops de tournoi qui la jouent :
+ * un rang EDHREC y serait un rang de multijoueur.
+ */
+function Popularity({ card }: { card: MustHaveCard }) {
+  if (card.duel_share !== undefined) {
+    return (
+      <span title={`${card.duel_decks} decks de tops de duel la jouent`}>
+        {Math.round(card.duel_share * 100)} % des tops
+      </span>
+    )
+  }
+  return <>n°{card.edhrec_rank}</>
+}
+
+/** « 2026-03-28 » → « 28/03/2026 ». */
+function formatDate(iso: string) {
+  const [year, month, day] = iso.split("-")
+  return `${day}/${month}/${year}`
+}
+
 function Price({ card }: { card: MustHaveCard }) {
   if (card.owned > 0) {
     return (
@@ -277,7 +310,7 @@ function TypeSection({
                 <CardTile card={card} caption={displayName(card)} />
                 <div className="flex items-baseline justify-between gap-1 text-xs">
                   <span className="tabular-nums text-muted-foreground">
-                    n°{card.edhrec_rank}
+                    <Popularity card={card} />
                   </span>
                   <Price card={card} />
                 </div>
@@ -289,7 +322,9 @@ function TypeSection({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="w-12 py-1.5 font-medium">Rang</th>
+              <th className="w-16 py-1.5 font-medium">
+                {group.cards[0]?.duel_share !== undefined ? "Tops" : "Rang"}
+              </th>
               <th className="py-1.5 font-medium">Carte</th>
               <th className="w-28 py-1.5 font-medium">Coût</th>
               <th className="w-44 py-1.5 text-right font-medium">Prix</th>
@@ -302,7 +337,9 @@ function TypeSection({
                 key={card.oracle_id}
                 className={`border-b last:border-0 ${card.owned > 0 ? "text-muted-foreground" : ""}`}
               >
-                <td className="py-1.5 tabular-nums">{card.edhrec_rank}</td>
+                <td className="py-1.5 tabular-nums">
+                  <Popularity card={card} />
+                </td>
                 <td className="py-1.5">
                   <span className={card.owned > 0 ? "" : "font-medium text-foreground"}>
                     {displayName(card)}
