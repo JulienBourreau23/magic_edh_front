@@ -69,6 +69,7 @@ const GROUPES: Groupe[] = [
     items: [
       { href: "/archetypes", label: "Archétypes", hint: "ce que le format joue, et ce que ça coûte" },
       { href: "/regles", label: "Règles", hint: "banlists, brackets, Game Changers" },
+      { href: "/prochaine-extension", label: "Prochaine extension", hint: "ce qui sort bientôt, face à ma collection" },
     ],
   },
 ]

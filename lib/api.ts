@@ -1490,3 +1490,42 @@ export const coverageApi = {
   get: (format = "commander") =>
     apiFetch<CollectionCoverage>(`/collection/coverage?format=${format}`),
 }
+
+// --- Prochaine extension --------------------------------------------------
+
+export interface UpcomingSet {
+  code: string
+  name: string
+  set_type: string
+  /** Impressions annoncées par Scryfall, variantes comprises. */
+  card_count: number
+  /** Impressions en base : un écart signale des spoilers pas encore synchronisés. */
+  prints_in_base: number
+  icon_svg_uri: string | null
+}
+
+export interface UpcomingCard {
+  set_code: string
+  collector_number: string
+  oracle_id: string
+  scryfall_id: string
+  name: string
+  name_fr: string | null
+  type_line: string
+  mana_cost: string | null
+  rarity: string
+  price_eur: number | null
+  image_uri: string | null
+  image_downloaded: boolean
+  owned_quantity: number
+  wanted_quantity: number
+}
+
+export interface Upcoming {
+  release: { released_at: string; sets: UpcomingSet[] } | null
+  cards: UpcomingCard[]
+}
+
+export const upcomingApi = {
+  get: () => apiFetch<Upcoming>("/upcoming"),
+}
