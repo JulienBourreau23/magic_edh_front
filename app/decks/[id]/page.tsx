@@ -60,6 +60,7 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
 
   const { deck, cards, import_issues, mana_curve, total_price_eur, legality_warnings, bracket, manabase, role_diagnostics, synergies } = data
   const commander = cards.find((c) => c.is_commander)
+  const totalCards = cards.reduce((sum, c) => sum + c.quantity, 0)
   const expensive = cards.filter((c) => (c.price_eur ?? 0) > 50)
 
   return (
@@ -268,7 +269,13 @@ export default function DeckDetailPage({ params }: { params: Promise<{ id: strin
       )}
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold">Cartes ({cards.length})</h2>
+        <h2 className="mb-3 flex items-baseline gap-2 text-lg font-semibold">
+          Cartes
+          <Badge variant={totalCards === 100 ? "secondary" : "destructive"}>
+            {totalCards}/100{totalCards === 100 ? " ✓" : ""}
+          </Badge>
+          <span className="text-sm font-normal text-muted-foreground">{cards.length} différentes</span>
+        </h2>
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
           {cards.map((c) => (
             <CardTile key={c.scryfall_id} card={c} />
