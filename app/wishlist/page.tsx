@@ -239,8 +239,20 @@ export default function WishlistPage() {
         ) : view === "visuels" ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
             {visible.map((entry) => (
-              <div key={entry.oracle_id} className="flex flex-col gap-1">
+              <div
+                key={entry.oracle_id}
+                className={
+                  entry.owned_quantity > 0
+                    ? "flex flex-col gap-1 rounded-lg bg-destructive/10 p-1 ring-2 ring-destructive"
+                    : "flex flex-col gap-1"
+                }
+              >
                 <CardTile card={entry} caption={displayName(entry)} />
+                {entry.owned_quantity > 0 && (
+                  <Badge variant="destructive" className="w-full">
+                    {entry.owned_quantity} déjà en collection
+                  </Badge>
+                )}
                 <Button size="sm" onClick={() => run(wishlistApi.acquire(entry.oracle_id, 1))}>
                   C&apos;est acheté
                 </Button>
@@ -252,7 +264,7 @@ export default function WishlistPage() {
             <table className="w-full min-w-[40rem] text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 font-medium">Carte</th>
+                  <th className="py-2 pl-3 font-medium">Carte</th>
                   <th className="py-2 font-medium">Pourquoi</th>
                   <th className="py-2 text-right font-medium">Prix unité</th>
                   <th className="py-2 text-right font-medium">Cherchée</th>
@@ -261,13 +273,26 @@ export default function WishlistPage() {
               </thead>
               <tbody>
                 {visible.map((entry) => (
-                  <tr key={entry.oracle_id} className="border-b last:border-0">
-                    <td className="py-1.5 pr-4">
+                  <tr
+                    key={entry.oracle_id}
+                    className={
+                      entry.owned_quantity > 0
+                        ? "border-b bg-destructive/10 last:border-0"
+                        : "border-b last:border-0"
+                    }
+                  >
+                    <td
+                      className={
+                        entry.owned_quantity > 0
+                          ? "border-l-4 border-destructive py-1.5 pr-4 pl-2"
+                          : "py-1.5 pr-4 pl-3"
+                      }
+                    >
                       {displayName(entry)}
                       {entry.owned_quantity > 0 && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          ({entry.owned_quantity} déjà en collection)
-                        </span>
+                        <Badge variant="destructive" className="ml-2">
+                          {entry.owned_quantity} déjà en collection
+                        </Badge>
                       )}
                     </td>
                     <td className="py-1.5 pr-4 text-xs text-muted-foreground">
